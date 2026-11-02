@@ -22,13 +22,18 @@ namespace Player {
         InputAction AttackAction;
         
         public Vector2 GetLookDelta() => lookAction?.ReadValue<Vector2>() ?? Vector2.zero;
-
+        
+        ///<summary>
+        ///x is forward/backward, y is left/right y is 0 remember that
+        ///</summary>
         public Vector3 GetMoveVector() {
             var inVector2 = moveAction?.ReadValue<Vector2>() ?? Vector2.zero;
             return new Vector3(inVector2.x, 0, inVector2.y);
         }
         
         public bool GetJumpActionPressedThisFrame() => jumpAction?.WasPressedThisFrame() ?? false;
+        
+        public bool GetJumpActionReleasedThisFrame() => jumpAction?.IsPressed() ?? false;
         
         public bool GetInteractActionPressedThisFrame() => InteractAction?.WasPressedThisFrame() ?? false;
         
