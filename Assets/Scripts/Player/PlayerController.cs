@@ -1,13 +1,14 @@
 using System;
 using System.Collections;
 using Player.Data;
+using Unity.U2D.Physics;
 using UnityEngine;
 
 namespace Player {
     [RequireComponent(typeof(Rigidbody))]
     public class PlayerController : MonoBehaviour {
         //So we dont start checking underground
-        const float LOWER_ORIGIN_MINIMUM_HEIGHT = 0.05f;
+        const float LOWER_ORIGIN_MINIMUM_HEIGHT = 0.15f;
         
         [Header("Refs and Data")]
         [SerializeField] PlayerData playerData;
@@ -15,6 +16,7 @@ namespace Player {
         [SerializeField] Transform CameraTransform;
         [SerializeField] Rigidbody playerRigidbody;
         [SerializeField] CapsuleCollider playerCollider;
+        [SerializeField] LayerMask ignoredLayer;
         
         [Header("Settings")]
         [SerializeField] bool drawGizmos = true;
@@ -22,16 +24,19 @@ namespace Player {
         PlayerInputManager playerInputManager;
 
         float xRotation;
+        float jumpElapsedTime;
         Vector2 currentMouseDelta;
         Vector3 moveDirection;
         
-        bool jumpActionPressed;
+        [SerializeField] bool jumpActionPressed;
         bool jumpActionReleased;
-        bool canJump;
-        
-        Collider[] groundedCollisionResults;
+        [SerializeField] bool canJump;
+        [SerializeField] bool isJumping;
+        [SerializeField] bool isJumpQueued;
 
-        float GetSphereCastRadius => playerCollider ? playerCollider.radius / 2f : 0;
+        readonly Collider[] groundedCollisionResults = new Collider[16];
+
+        float GetSphereCastRadius => playerCollider ? playerCollider.radius / 2f : 1f;
 
         void Start() {
             playerInputManager = PlayerInputManager.TryGetInstance();
@@ -44,7 +49,9 @@ namespace Player {
         void FixedUpdate() {
             Move();
             Jump();
-            IsGrounded();
+            ApplyGravity();
+            ApplyFriction();
+            ApplyJumpCutOffGravity();
         }
         void LateUpdate() {
             Look();
@@ -66,6 +73,9 @@ namespace Player {
             currentMouseDelta = playerInputManager.GetLookDelta();
             moveDirection = GetMoveDirection();
             jumpActionPressed = playerInputManager.GetJumpActionPressedThisFrame();
+            if (jumpActionPressed)
+                isJumpQueued = true;
+            
             jumpActionReleased = playerInputManager.GetJumpActionReleasedThisFrame();
             canJump = IsGrounded();
         }
@@ -118,19 +128,47 @@ namespace Player {
         }
         
         void Jump() {
-            if(!canJump)
+            if (!isJumpQueued)
                 return;
-            
-            if (jumpActionReleased)
-                playerRigidbody.AddForce(transform.up * CalculateJumpPower(), ForceMode.Impulse);
+
+            isJumpQueued = false;
+            if (!canJump)
+                return;
+
+            isJumping = true;
+            jumpElapsedTime = 0f;
+            playerRigidbody.AddForce(Vector3.up * playerData.jumpMultiplier, ForceMode.Impulse);
+            if (playerRigidbody.linearVelocity.y <= 0f)
+                isJumping = false;
         }
         
-        float CalculateJumpPower() {
-            var power = playerData.jumpPower;
-            if (IsGrounded()) 
-                power -= playerRigidbody.linearVelocity.y;
+        void ApplyGravity() {
+            jumpElapsedTime += Time.fixedDeltaTime;
+            var normalizedTime = Mathf.Clamp01( jumpElapsedTime / playerData.jumpDuration);
+            var gravityMultiplier = playerData.jumpCurve.Evaluate(normalizedTime);
+            var finalGravityControl = playerRigidbody.linearVelocity.y < 0
+                ? playerData.fallingGravityControlMultiplier
+                : playerData.gravityControlMultiplier;
             
-            return power;
+            playerRigidbody.AddForce(Physics.gravity * (gravityMultiplier * finalGravityControl), ForceMode.Acceleration);
+        }
+
+        void ApplyJumpCutOffGravity() {
+            var finalAppliedJumpJutOffForce = playerRigidbody.linearVelocity.y > playerData.minimalJumpVelocity && !jumpActionReleased ? playerData.jumpCutOfForce : 0;
+            playerRigidbody.AddForce(Vector3.down * finalAppliedJumpJutOffForce, ForceMode.Acceleration);
+        }  
+        
+        void ApplyFriction() {
+            if (isJumping || !(GetMoveDirection().magnitude < 0.01f)) 
+                return;
+            
+            var horizontalVelocity = new Vector3(playerRigidbody.linearVelocity.x, 0, playerRigidbody.linearVelocity.z);
+            if (!(horizontalVelocity.magnitude > 0)) 
+                return;
+            
+            var friction = Mathf.Min(horizontalVelocity.magnitude, playerData.groundedFriction);
+            var frictionForce = -horizontalVelocity.normalized * friction;
+            playerRigidbody.AddForce(frictionForce, ForceMode.Acceleration);
         }
         
         int GetGroundedSphereCast() {
@@ -138,15 +176,17 @@ namespace Player {
                 return 0;
 
             var sphereCastRadius = GetSphereCastRadius;
-            return Physics.OverlapSphereNonAlloc(GetPlayerFeetPosition(), sphereCastRadius, groundedCollisionResults);
+            return Physics.OverlapSphereNonAlloc(GetPlayerFeetPosition(), sphereCastRadius, groundedCollisionResults, GetGroundedCastLayerMask);
         }
         
-        bool IsGrounded() => GetGroundedSphereCast() >= 1 && playerRigidbody.linearVelocity.y <= 0f ? true : false;
+        int GetGroundedCastLayerMask => ~ignoredLayer;
         
-        Vector3 GetPlayerFeetPosition() {
-            return playerRigidbody.position + Vector3.up * (playerCollider.radius);
-        }
+        bool IsGrounded() => GetGroundedSphereCast() >= 1 && playerRigidbody.linearVelocity.y <= 0f;
         
+        Vector3 GetPlayerFeetPosition() =>
+            playerRigidbody.position + Vector3.down * (playerCollider.radius / 2) + Vector3.up * LOWER_ORIGIN_MINIMUM_HEIGHT;
+        
+    
         void OnDrawGizmosSelected() {
             if (!drawGizmos)
                 return;

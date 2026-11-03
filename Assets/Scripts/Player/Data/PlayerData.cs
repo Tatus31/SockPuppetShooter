@@ -8,11 +8,18 @@ namespace Player.Data {
         public float mouseSensitivityY = 0.5f;
         [Header("Movement Data")]
         public float moveSpeed = 10f;
-        public float acceleration = 25f;
+        public float acceleration = 45f;
         public float stepHeight = 0.3f;
         public float stepCheckDistance = 0.4f;
-        public float stepClimbSpeed = 15f;
+        public float stepClimbSpeed = 1f;
+        public float groundedFriction = 2.5f;
         [Header("Jump Data")]
-        public float jumpPower = 200f;
+        public float jumpDuration = 0.8f;
+        public float jumpMultiplier = 10f;
+        public float gravityControlMultiplier = 2f;
+        public float fallingGravityControlMultiplier = 6f;
+        public float jumpCutOfForce = 50f;
+        public float minimalJumpVelocity = 15f;
+        public AnimationCurve jumpCurve;
     }
 }

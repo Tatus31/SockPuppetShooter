@@ -310,7 +310,11 @@ MonoBehaviour:
   CameraTransform: {fileID: 2120305974}
   playerRigidbody: {fileID: 13600474}
   playerCollider: {fileID: 25005374}
+  ignoredLayer:
+    serializedVersion: 2
+    m_Bits: 8
   drawGizmos: 1
+  canJump: 0
 --- !u!1 &18084417
 GameObject:
   m_ObjectHideFlags: 0
