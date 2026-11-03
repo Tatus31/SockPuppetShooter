@@ -1,13 +1,19 @@
 using System;
 using System.Collections;
+using Player.Data;
 using UnityEngine;
 
 namespace Player {
     [RequireComponent(typeof(Rigidbody))]
     public class PlayerController : MonoBehaviour {
-        [Header("Refs")]
-        [SerializeField] Rigidbody playerRigidbody;
+        //So we dont start checking underground
+        const float LOWER_ORIGIN_MINIMUM_HEIGHT = 0.05f;
+        
+        [Header("Refs and Data")]
+        [SerializeField] PlayerData playerData;
+        [Space(10)]
         [SerializeField] Transform CameraTransform;
+        [SerializeField] Rigidbody playerRigidbody;
         [SerializeField] CapsuleCollider playerCollider;
         
         [Header("Settings")]
@@ -21,13 +27,12 @@ namespace Player {
         
         bool jumpActionPressed;
         bool jumpActionReleased;
-        bool isJumping;
-        float jumpHoldTimer;
+        bool canJump;
         
-        float maxJumpHoldTime = 0.3f;
-        float jumpHoldForce = 40f;
-        float jumpInitialForce = 300f;
-        
+        Collider[] groundedCollisionResults;
+
+        float GetSphereCastRadius => playerCollider ? playerCollider.radius / 2f : 0;
+
         void Start() {
             playerInputManager = PlayerInputManager.TryGetInstance();
         }
@@ -39,15 +44,15 @@ namespace Player {
         void FixedUpdate() {
             Move();
             Jump();
-            HandleGrounded();
+            IsGrounded();
         }
         void LateUpdate() {
             Look();
         }
 
         void Look() {
-            var mouseX = currentMouseDelta.x * 0.5f;
-            var mouseY = currentMouseDelta.y * 0.5f;
+            var mouseX = currentMouseDelta.x * playerData.mouseSensitivityX;
+            var mouseY = currentMouseDelta.y * playerData.mouseSensitivityY;
 
             var rot = CameraTransform.transform.localRotation.eulerAngles;
             var yRotation = rot.y + mouseX;
@@ -62,16 +67,7 @@ namespace Player {
             moveDirection = GetMoveDirection();
             jumpActionPressed = playerInputManager.GetJumpActionPressedThisFrame();
             jumpActionReleased = playerInputManager.GetJumpActionReleasedThisFrame();
-            HandleJumpActionState();
-        }
-
-        void HandleJumpActionState() {
-            if (jumpActionPressed && IsGrounded() && !isJumping) {
-                isJumping = true;
-                jumpHoldTimer = 0f;
-                
-                playerRigidbody.AddForce(Vector3.up * jumpInitialForce, ForceMode.Impulse);
-            }
+            canJump = IsGrounded();
         }
         
         Vector3 GetMoveDirection() {
@@ -94,8 +90,8 @@ namespace Player {
 
             //Horizontal only so TryStep can deal with small bumps in geometry
             Vector3 GetCurrentHorizontalVelocity() {
-                float moveSpeed = 10f;
-                float acceleration = 25f;
+                var moveSpeed = playerData.moveSpeed;
+                var acceleration = playerData.acceleration;
                 
                 var currentVelocity = playerRigidbody.linearVelocity;
                 var horizontalVelocity = new Vector3( currentVelocity.x, 0f, currentVelocity.z );
@@ -107,12 +103,9 @@ namespace Player {
             void TryStep(Vector3 direction) {
                 if (direction == Vector3.zero)
                     return;
-
-                //So we dont start checking underground
-                const float LOWER_ORIGIN_MINIMUM_HEIGHT = 0.05f;
                 
-                var stepHeight = 0.3f;
-                var stepCheckDistance  = 0.4f;
+                var stepHeight = playerData.stepHeight;
+                var stepCheckDistance  = playerData.stepCheckDistance;
                 
                 var lowerOrigin = GetPlayerFeetPosition() + Vector3.up * LOWER_ORIGIN_MINIMUM_HEIGHT;
                 var upperOrigin = GetPlayerFeetPosition() + Vector3.up * stepHeight;
@@ -120,36 +113,36 @@ namespace Player {
                 var lowerHit = Physics.Raycast(lowerOrigin, direction, stepCheckDistance);
                 var upperHit = Physics.Raycast(upperOrigin, direction, stepCheckDistance);
                 if (lowerHit && !upperHit)
-                    playerRigidbody.position += Vector3.up * (stepHeight * 5f * Time.fixedDeltaTime);
+                    playerRigidbody.position += Vector3.up * (stepHeight * playerData.stepClimbSpeed * Time.fixedDeltaTime);
             }
         }
         
         void Jump() {
-            if (!isJumping || jumpActionReleased)
+            if(!canJump)
                 return;
-
-            if (jumpHoldTimer >= maxJumpHoldTime)
-                return;
-
-            playerRigidbody.AddForce(Vector3.up * jumpHoldForce, ForceMode.Acceleration);
-            jumpHoldTimer += Time.fixedDeltaTime;
+            
+            if (jumpActionReleased)
+                playerRigidbody.AddForce(transform.up * CalculateJumpPower(), ForceMode.Impulse);
         }
         
-        bool IsGrounded() {
+        float CalculateJumpPower() {
+            var power = playerData.jumpPower;
+            if (IsGrounded()) 
+                power -= playerRigidbody.linearVelocity.y;
+            
+            return power;
+        }
+        
+        int GetGroundedSphereCast() {
             if (playerRigidbody.linearVelocity.y > 0.1f)
-                return false;
+                return 0;
 
-            var sphereCastRadius = playerCollider.radius / 2f;
-            const float groundCheckMaxDistance = 0.35f;
-            return Physics.SphereCast(GetPlayerFeetPosition(), sphereCastRadius,
-                Vector3.down, out _, groundCheckMaxDistance);
+            var sphereCastRadius = GetSphereCastRadius;
+            return Physics.OverlapSphereNonAlloc(GetPlayerFeetPosition(), sphereCastRadius, groundedCollisionResults);
         }
         
-        void HandleGrounded() {
-            if (playerRigidbody.linearVelocity.y <= 0f && IsGrounded()) 
-                isJumping = false;
-        }
-
+        bool IsGrounded() => GetGroundedSphereCast() >= 1 && playerRigidbody.linearVelocity.y <= 0f ? true : false;
+        
         Vector3 GetPlayerFeetPosition() {
             return playerRigidbody.position + Vector3.up * (playerCollider.radius);
         }
@@ -166,6 +159,9 @@ namespace Player {
             Vector3 lineStart = transform.position + Vector3.up * lineHeight;
             Vector3 lineEnd = lineStart + transform.forward * lineLength;
             Gizmos.DrawLine(lineStart, lineEnd);
+            
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawWireSphere(GetPlayerFeetPosition(), GetSphereCastRadius);
         }
     }
 }

@@ -306,8 +306,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fb9b5e1b472b5fb4bad21e6d1ae6f3f2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Player.PlayerController
-  playerRigidbody: {fileID: 13600474}
+  playerData: {fileID: 11400000, guid: 063ae1934ab2e824e9e3ec558af16e2b, type: 2}
   CameraTransform: {fileID: 2120305974}
+  playerRigidbody: {fileID: 13600474}
   playerCollider: {fileID: 25005374}
   drawGizmos: 1
 --- !u!1 &18084417
