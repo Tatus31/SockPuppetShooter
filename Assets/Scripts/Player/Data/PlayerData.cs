@@ -1,3 +1,4 @@
+using DG.Tweening;
 using UnityEngine;
 
 namespace Player.Data {
@@ -21,5 +22,14 @@ namespace Player.Data {
         public float jumpCutOfForce = 50f;
         public float minimalJumpVelocity = 15f;
         public AnimationCurve jumpCurve;
+        [Header("Slope Handling Data")] 
+        public float maxSlopeAngle = 35f;
+        [Header("Sliding")] 
+        public float allowSlideVelocity = 5f;
+        public float slideForce = 250f;
+        public float slideTime = 0.5f;
+        public float slidingCameraTweenDuration = 0.5f;
+        public Ease slidingCameraTweenEase =  Ease.InQuad;
+        public float slideCameraPositionOffset = 1f;
     }
 }

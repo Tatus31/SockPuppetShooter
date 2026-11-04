@@ -33,13 +33,15 @@ namespace Player {
         
         public bool GetJumpActionPressedThisFrame() => jumpAction?.WasPressedThisFrame() ?? false;
         
-        public bool GetJumpActionReleasedThisFrame() => jumpAction?.IsPressed() ?? false;
+        public bool IsJumpActionHeld() => jumpAction?.IsPressed() ?? false;
         
         public bool GetInteractActionPressedThisFrame() => InteractAction?.WasPressedThisFrame() ?? false;
         
         public bool GetSprintActionPressedThisFrame() => SprintAction?.WasPressedThisFrame() ?? false;
         
         public bool GetCrouchActionPressedThisFrame() => CrouchAction?.WasPressedThisFrame() ?? false;
+        
+        public bool IsCrouchActionHeld() => CrouchAction?.IsPressed() ?? false;
         
         public bool GetAttackActionPressedThisFrame() => AttackAction?.WasPressedThisFrame() ?? false;
         

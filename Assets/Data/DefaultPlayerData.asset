@@ -15,15 +15,17 @@ MonoBehaviour:
   mouseSensitivityX: 0.5
   mouseSensitivityY: 0.5
   moveSpeed: 10
-  acceleration: 25
-  stepHeight: 0.3
-  stepCheckDistance: 0.4
+  acceleration: 55
+  stepHeight: 0
+  stepCheckDistance: 0
   stepClimbSpeed: 0
-  groundedFriction: 2.5
+  groundedFriction: 50
   jumpDuration: 0.8
-  jumpMultiplier: 650
+  jumpMultiplier: 10
   gravityControlMultiplier: 2
-  fallingGravityControlMultiplier: 25
+  fallingGravityControlMultiplier: 5
+  jumpCutOfForce: 105
+  minimalJumpVelocity: 5
   jumpCurve:
     serializedVersion: 2
     m_Curve:
@@ -48,3 +50,10 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  maxSlopeAngle: 35
+  allowSlideVelocity: 0.1
+  slideForce: 50
+  slideTime: 0.5
+  slidingCameraTweenDuration: 0.2
+  slidingCameraTweenEase: 6
+  slideCameraPositionOffset: 0.5
