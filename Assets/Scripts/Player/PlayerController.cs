@@ -1,8 +1,5 @@
-using System;
-using System.Collections;
 using DG.Tweening;
 using Player.Data;
-using Unity.U2D.Physics;
 using UnityEngine;
 
 namespace Player {
@@ -15,6 +12,7 @@ namespace Player {
         [SerializeField] PlayerData playerData;
         [Space(10)]
         [SerializeField] Transform cameraTransform;
+        [SerializeField] Transform defaultCameraPositionTransform;
         [SerializeField] Rigidbody playerRigidbody;
         [SerializeField] CapsuleCollider playerCollider;
         [SerializeField] LayerMask ignoredLayer;
@@ -33,7 +31,6 @@ namespace Player {
         
         Vector2 currentMouseDelta;
         Vector3 moveDirection;
-        Vector3 defaultCameraPosition;
         
         bool jumpActionPressed;
         bool jumpActionReleased;
@@ -41,18 +38,20 @@ namespace Player {
         bool isJumping;
         bool isJumpQueued;
         bool isSliding;
-        bool isSlideActionHeld;
+        bool isSlideActionHeld; 
 
+        int GetGroundedCastLayerMask => ~ignoredLayer;
+        
         readonly Collider[] groundedCollisionResults = new Collider[16];
-
+        
         float GetSphereCastRadius => playerCollider ? playerCollider.radius / 2f : 1f;
 
+        #region Mono
         void OnValidate() {
             initialSlideForce = playerData.slideForce;
         }
 
         void Start() {
-            defaultCameraPosition = cameraTransform.localPosition;
             playerInputManager = PlayerInputManager.TryGetInstance();
         }
 
@@ -63,7 +62,7 @@ namespace Player {
         void FixedUpdate() {
             Move();
             Jump();
-            ApplyGravity();
+            ApplyJumpGravity();
             ApplyFriction();
             ApplyJumpCutOffGravity();
             HandleSliding();
@@ -71,7 +70,9 @@ namespace Player {
         void LateUpdate() {
             Look();
         }
+        #endregion
 
+        #region Look
         void Look() {
             var mouseX = currentMouseDelta.x * playerData.mouseSensitivityX;
             var mouseY = currentMouseDelta.y * playerData.mouseSensitivityY;
@@ -84,6 +85,9 @@ namespace Player {
             cameraTransform.localRotation = Quaternion.Euler(xRotation, yRotation, 0f);
         }
 
+        #endregion
+
+        #region Input
         void UpdatePlayerInput() {
             currentMouseDelta = playerInputManager.GetLookDelta();
             moveDirection = IsOnSlope() ? GetSlopeMoveDirection() : GetMoveDirection();
@@ -95,7 +99,9 @@ namespace Player {
             jumpActionReleased = playerInputManager.IsJumpActionHeld();
             canJump = IsGrounded();
         }
+        #endregion
         
+        #region Move
         Vector3 GetMoveDirection() {
             var forward = cameraTransform.forward;
             var right = cameraTransform.right;
@@ -110,63 +116,6 @@ namespace Player {
             return (right * input.x + forward * input.z).normalized;
         }
 
-        void MoveCameraTransformToTargetPositionY(float to) {
-            cameraTransform.DOKill();
-            cameraTransform.DOMoveY(to, playerData.slidingCameraTweenDuration).SetEase(playerData.slidingCameraTweenEase);
-        }
-        
-        void HandleSliding() {
-            if (!isSliding) {
-                var horizontalSpeed = GetHorizontalVelocity().magnitude;
-                var canStartSliding = isSlideActionHeld && IsGrounded() && horizontalSpeed > playerData.allowSlideVelocity;
-                if (canStartSliding)
-                    StartSliding();
-                
-                return;
-            }
-
-            var shouldStopSliding = !isSlideActionHeld || !IsGrounded() || isJumping;
-            if (shouldStopSliding) {
-                StopSliding();
-                return;
-            }
-
-            Sliding();
-        }
-        
-        void StartSliding() {
-            isSliding = true;
-            slideElapsedTime = 0f;
-            initialSlideForce = playerData.slideForce;
-            MoveCameraTransformToTargetPositionY(defaultCameraPosition.y - playerData.slideCameraPositionOffset);
-        }
-        
-        void Sliding() {
-            var horizontalVelocity = GetHorizontalVelocity();
-            var slideDirection = horizontalVelocity.normalized;
-            if (IsOnSlope())
-                slideDirection = Vector3.ProjectOnPlane(slideDirection, groundHit.normal).normalized;
-            
-            slideElapsedTime += Time.fixedDeltaTime;
-            var normalizedTime = Mathf.Clamp01(slideElapsedTime / playerData.slideTime);
-            var finalSlideForce = Mathf.Lerp(initialSlideForce, 0f, normalizedTime);
-            playerRigidbody.AddForce(slideDirection * finalSlideForce, ForceMode.Acceleration);
-        }
-        
-        void StopSliding() {
-            if (!isSliding)
-                return;
-
-            isSliding = false;
-            MoveCameraTransformToTargetPositionY(defaultCameraPosition.y);
-        }
-        
-        Vector3 GetHorizontalVelocity() {
-            var velocity = playerRigidbody.linearVelocity;
-            velocity.y = 0f;
-            return velocity;
-        }
-        
         void Move() {
             if (!isSliding) {
                 var horizontalVelocity = GetMovementHorizontalAcceleration();
@@ -202,6 +151,82 @@ namespace Player {
                 playerRigidbody.position += Vector3.up * (stepHeight * playerData.stepClimbSpeed * Time.fixedDeltaTime);
         }
         
+        void ApplyFriction() {
+            if (isJumping || isSliding || GetMoveDirection().sqrMagnitude > 0.01f)
+                return;
+
+            var horizontalVelocity = GetHorizontalVelocity();
+            var speed = horizontalVelocity.magnitude;
+            if (speed < 0.01f)
+                return;
+
+            var friction = Mathf.Min(speed / Time.fixedDeltaTime, playerData.groundedFriction);
+            playerRigidbody.AddForce(-horizontalVelocity.normalized * friction, ForceMode.Acceleration);
+        }
+        #endregion
+
+        #region Slide
+        void HandleSliding() {
+            MoveCameraDuringSlide();
+            
+            if (!isSliding) {
+                var horizontalSpeed = GetHorizontalVelocity().magnitude;
+                var canStartSliding = isSlideActionHeld && IsGrounded() && horizontalSpeed > playerData.allowSlideVelocity;
+                if (canStartSliding)
+                    StartSliding();
+                
+                return;
+            }
+
+            var shouldStopSliding = !isSlideActionHeld || !IsGrounded() || isJumping;
+            if (shouldStopSliding) {
+                StopSliding();
+                return;
+            }
+
+            Slide();
+        }
+        
+        void StartSliding() {
+            isSliding = true;
+            slideElapsedTime = 0f;
+            initialSlideForce = playerData.slideForce;
+        }
+        
+        void Slide() {
+            var horizontalVelocity = GetHorizontalVelocity();
+            var slideDirection = horizontalVelocity.normalized;
+            if (IsOnSlope())
+                slideDirection = Vector3.ProjectOnPlane(slideDirection, groundHit.normal).normalized;
+            
+            slideElapsedTime += Time.fixedDeltaTime;
+            var normalizedTime = Mathf.Clamp01(slideElapsedTime / playerData.slideTime);
+            var finalSlideForce = Mathf.Lerp(initialSlideForce, 0f, normalizedTime);
+            playerRigidbody.AddForce(slideDirection * finalSlideForce, ForceMode.Acceleration);
+        }
+        
+        void StopSliding() {
+            if (!isSliding)
+                return;
+
+            isSliding = false;
+        }
+
+        void MoveCameraDuringSlide() {
+            var targetY = isSliding 
+                ? defaultCameraPositionTransform.position.y - playerData.slideCameraPositionOffset 
+                : defaultCameraPositionTransform.position.y;
+            
+            MoveCameraTransformToTargetPositionY(targetY);
+        }
+        
+        void MoveCameraTransformToTargetPositionY(float to) => cameraTransform.
+            DOMoveY(to, playerData.slidingCameraTweenDuration).
+            SetEase(playerData.slidingCameraTweenEase);
+        
+        #endregion
+
+        #region Jump
         void Jump() {
             if (!isJumpQueued)
                 return;
@@ -217,7 +242,7 @@ namespace Player {
                 isJumping = false;
         }
         
-        void ApplyGravity() {
+        void ApplyJumpGravity() {
             jumpElapsedTime += Time.fixedDeltaTime;
             var normalizedTime = Mathf.Clamp01( jumpElapsedTime / playerData.jumpDuration);
             var gravityMultiplier = playerData.jumpCurve.Evaluate(normalizedTime);
@@ -231,19 +256,14 @@ namespace Player {
         void ApplyJumpCutOffGravity() {
             var finalJumpCutOffForce = playerRigidbody.linearVelocity.y > playerData.minimalJumpVelocity && !jumpActionReleased ? playerData.jumpCutOfForce : 0;
             playerRigidbody.AddForce(Vector3.down * finalJumpCutOffForce, ForceMode.Acceleration);
-        }  
-        
-        void ApplyFriction() {
-            if (isJumping || isSliding || GetMoveDirection().sqrMagnitude > 0.01f)
-                return;
+        }
+        #endregion
 
-            var horizontalVelocity = GetHorizontalVelocity();
-            var speed = horizontalVelocity.magnitude;
-            if (speed < 0.01f)
-                return;
-
-            var friction = Mathf.Min(speed / Time.fixedDeltaTime, playerData.groundedFriction);
-            playerRigidbody.AddForce(-horizontalVelocity.normalized * friction, ForceMode.Acceleration);
+        #region Getters
+        Vector3 GetHorizontalVelocity() {
+            var velocity = playerRigidbody.linearVelocity;
+            velocity.y = 0f;
+            return velocity;
         }
         
         int GetGroundedSphereCast() {
@@ -253,8 +273,6 @@ namespace Player {
             var sphereCastRadius = GetSphereCastRadius;
             return Physics.OverlapSphereNonAlloc(GetPlayerFeetPosition(), sphereCastRadius, groundedCollisionResults, GetGroundedCastLayerMask);
         }
-        
-        int GetGroundedCastLayerMask => ~ignoredLayer;
         
         bool IsGrounded() => GetGroundedSphereCast() >= 1 && playerRigidbody.linearVelocity.y <= 0f;
         
@@ -273,7 +291,10 @@ namespace Player {
         
         Vector3 GetPlayerCenterPosition() =>
             playerRigidbody.position + Vector3.up * (playerCollider.height / 2);
-    
+        
+        #endregion
+
+        #region Gizmos
         void OnDrawGizmosSelected() {
             if (!drawGizmos)
                 return;
@@ -292,5 +313,6 @@ namespace Player {
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(GetPlayerCenterPosition(), GetSphereCastRadius);
         }
+        #endregion
     }
 }
