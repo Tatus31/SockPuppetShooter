@@ -21,15 +21,20 @@ namespace Player.Data {
         public float fallingGravityControlMultiplier = 6f;
         public float jumpCutOfForce = 50f;
         public float minimalJumpVelocity = 15f;
+        public float inAirAcceleration = 20f;
         public AnimationCurve jumpCurve;
         [Header("Slope Handling Data")] 
         public float maxSlopeAngle = 35f;
+        public float slidingFrictionOnSlope = 2.5f;
         [Header("Sliding")] 
         public float allowSlideVelocity = 5f;
         public float slideForce = 250f;
         public float slideTime = 0.5f;
+        public float slidingFriction = 10f;
         public float slidingCameraTweenDuration = 0.5f;
-        public Ease slidingCameraTweenEase =  Ease.InQuad;
         public float slideCameraPositionOffset = 1f;
+        public Ease slidingCameraTweenEase =  Ease.InQuad;
+        public AnimationCurve slidingForceCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+
     }
 }

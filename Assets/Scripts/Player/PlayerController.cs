@@ -1,12 +1,14 @@
 using DG.Tweening;
+using Managers;
 using Player.Data;
 using UnityEngine;
+using Utils;
 
 namespace Player {
     [RequireComponent(typeof(Rigidbody))]
     public class PlayerController : MonoBehaviour {
         //So we dont start checking underground
-        const float LOWER_ORIGIN_MINIMUM_HEIGHT = 0.15f;
+        const float LOWER_ORIGIN_MINIMUM_HEIGHT = 0.45f;
         
         [Header("Refs and Data")]
         [SerializeField] PlayerData playerData;
@@ -21,6 +23,7 @@ namespace Player {
         [SerializeField] bool drawGizmos = true;
         
         PlayerInputManager playerInputManager;
+        DebugLogManager debugLogManager;
 
         RaycastHit groundHit;
 
@@ -34,17 +37,16 @@ namespace Player {
         
         bool jumpActionPressed;
         bool jumpActionReleased;
-        bool canJump;
-        bool isJumping;
+        [SerializeField] bool canJump;
         bool isJumpQueued;
-        bool isSliding;
+        [SerializeField] bool isSliding;
         bool isSlideActionHeld; 
 
         int GetGroundedCastLayerMask => ~ignoredLayer;
         
         readonly Collider[] groundedCollisionResults = new Collider[16];
         
-        float GetSphereCastRadius => playerCollider ? playerCollider.radius / 2f : 1f;
+        float GetSphereCastRadius => playerCollider ? playerCollider.radius / 1.5f : 1f;
 
         #region Mono
         void OnValidate() {
@@ -52,7 +54,9 @@ namespace Player {
         }
 
         void Start() {
-            playerInputManager = PlayerInputManager.TryGetInstance();
+            var gameManager = GameManager.TryGetInstance();
+            playerInputManager = gameManager.playerInputManager;
+            debugLogManager = gameManager.debugLogManager;
         }
 
         void Update() {
@@ -60,6 +64,7 @@ namespace Player {
         }
 
         void FixedUpdate() {
+            AlignVelocityToSlope();
             Move();
             Jump();
             ApplyJumpGravity();
@@ -93,11 +98,23 @@ namespace Player {
             moveDirection = IsOnSlope() ? GetSlopeMoveDirection() : GetMoveDirection();
             jumpActionPressed = playerInputManager.GetJumpActionPressedThisFrame();
             isSlideActionHeld = playerInputManager.IsCrouchActionHeld();
-            if (jumpActionPressed)
-                isJumpQueued = true;
+
+            ToggleDebugConsole();
+            QueueJumpInput();
             
             jumpActionReleased = playerInputManager.IsJumpActionHeld();
             canJump = IsGrounded();
+            return;
+
+            void QueueJumpInput() {
+                if (jumpActionPressed)
+                    isJumpQueued = true;
+            }
+            
+            void ToggleDebugConsole() { 
+                if (playerInputManager.GetInteractActionPressedThisFrame())
+                    debugLogManager.ToggleConsole();
+            }
         }
         #endregion
         
@@ -126,42 +143,50 @@ namespace Player {
 
             //Horizontal only so TryStep can deal with small bumps in geometry
             Vector3 GetMovementHorizontalAcceleration() {
-                var currentVelocity = GetHorizontalVelocity();
+                var currentVelocity = IsOnSlope() ? GetSlopeVelocity() : GetHorizontalVelocity();
                 if (moveDirection.sqrMagnitude < 0.01f)
                     return Vector3.zero;
 
                 var targetVelocity = moveDirection * playerData.moveSpeed;
-                return Vector3.ClampMagnitude((targetVelocity - currentVelocity) / Time.fixedDeltaTime, playerData.acceleration);
+                var finalAcceleration = canJump ? playerData.acceleration : playerData.inAirAcceleration;
+                return Vector3.ClampMagnitude((targetVelocity - currentVelocity) / Time.fixedDeltaTime, finalAcceleration);
+            }
+            
+            void TryStep(Vector3 direction) {
+                if (direction == Vector3.zero)
+                    return;
+                
+                var stepHeight = playerData.stepHeight;
+                var stepCheckDistance  = playerData.stepCheckDistance;
+                
+                var lowerOrigin = GetPlayerFeetPosition() + Vector3.up * LOWER_ORIGIN_MINIMUM_HEIGHT;
+                var upperOrigin = GetPlayerFeetPosition() + Vector3.up * stepHeight;
+
+                var lowerHit = Physics.Raycast(lowerOrigin, direction, stepCheckDistance);
+                var upperHit = Physics.Raycast(upperOrigin, direction, stepCheckDistance);
+                if (lowerHit && !upperHit)
+                    playerRigidbody.position += Vector3.up * (stepHeight * playerData.stepClimbSpeed * Time.fixedDeltaTime);
             }
         }
-        
-        void TryStep(Vector3 direction) {
-            if (direction == Vector3.zero)
-                return;
-                
-            var stepHeight = playerData.stepHeight;
-            var stepCheckDistance  = playerData.stepCheckDistance;
-                
-            var lowerOrigin = GetPlayerFeetPosition() + Vector3.up * LOWER_ORIGIN_MINIMUM_HEIGHT;
-            var upperOrigin = GetPlayerFeetPosition() + Vector3.up * stepHeight;
+        #endregion
 
-            var lowerHit = Physics.Raycast(lowerOrigin, direction, stepCheckDistance);
-            var upperHit = Physics.Raycast(upperOrigin, direction, stepCheckDistance);
-            if (lowerHit && !upperHit)
-                playerRigidbody.position += Vector3.up * (stepHeight * playerData.stepClimbSpeed * Time.fixedDeltaTime);
-        }
-        
+        #region Friction
         void ApplyFriction() {
-            if (isJumping || isSliding || GetMoveDirection().sqrMagnitude > 0.01f)
+            var isOnSlope = IsOnSlope();
+            var slopeVelocity = isOnSlope ? GetSlopeVelocity() : GetHorizontalVelocity();
+            var slopeSpeed = slopeVelocity.magnitude;
+            if (slopeSpeed < 0.01f)
                 return;
 
-            var horizontalVelocity = GetHorizontalVelocity();
-            var speed = horizontalVelocity.magnitude;
-            if (speed < 0.01f)
+            if (!isSliding && GetMoveDirection().sqrMagnitude > 0.01f)
                 return;
 
-            var friction = Mathf.Min(speed / Time.fixedDeltaTime, playerData.groundedFriction);
-            playerRigidbody.AddForce(-horizontalVelocity.normalized * friction, ForceMode.Acceleration);
+            var finalFriction = isSliding
+                ? isOnSlope ? playerData.slidingFrictionOnSlope : playerData.slidingFriction
+                : playerData.groundedFriction;
+
+            var friction = Mathf.Min(slopeSpeed / Time.fixedDeltaTime, finalFriction);
+            playerRigidbody.AddForce(-slopeVelocity.normalized * friction, ForceMode.Acceleration);
         }
         #endregion
 
@@ -178,7 +203,7 @@ namespace Player {
                 return;
             }
 
-            var shouldStopSliding = !isSlideActionHeld || !IsGrounded() || isJumping;
+            var shouldStopSliding = !isSlideActionHeld || !IsGrounded() || !canJump;
             if (shouldStopSliding) {
                 StopSliding();
                 return;
@@ -198,10 +223,11 @@ namespace Player {
             var slideDirection = horizontalVelocity.normalized;
             if (IsOnSlope())
                 slideDirection = Vector3.ProjectOnPlane(slideDirection, groundHit.normal).normalized;
-            
+
             slideElapsedTime += Time.fixedDeltaTime;
             var normalizedTime = Mathf.Clamp01(slideElapsedTime / playerData.slideTime);
-            var finalSlideForce = Mathf.Lerp(initialSlideForce, 0f, normalizedTime);
+            var slideForceMultiplier = playerData.slidingForceCurve.Evaluate(normalizedTime);
+            var finalSlideForce = initialSlideForce * slideForceMultiplier;
             playerRigidbody.AddForce(slideDirection * finalSlideForce, ForceMode.Acceleration);
         }
         
@@ -234,12 +260,9 @@ namespace Player {
             isJumpQueued = false;
             if (!canJump)
                 return;
-
-            isJumping = true;
+            
             jumpElapsedTime = 0f;
             playerRigidbody.AddForce(Vector3.up * playerData.jumpMultiplier, ForceMode.VelocityChange);
-            if (playerRigidbody.linearVelocity.y <= 0f)
-                isJumping = false;
         }
         
         void ApplyJumpGravity() {
@@ -267,14 +290,11 @@ namespace Player {
         }
         
         int GetGroundedSphereCast() {
-            if (playerRigidbody.linearVelocity.y > 0.1f)
-                return 0;
-
             var sphereCastRadius = GetSphereCastRadius;
             return Physics.OverlapSphereNonAlloc(GetPlayerFeetPosition(), sphereCastRadius, groundedCollisionResults, GetGroundedCastLayerMask);
         }
         
-        bool IsGrounded() => GetGroundedSphereCast() >= 1 && playerRigidbody.linearVelocity.y <= 0f;
+        bool IsGrounded() => GetGroundedSphereCast() >= 1;
         
         bool IsOnSlope() {
             if (!Physics.Raycast(transform.position, Vector3.down, out groundHit, GetSphereCastRadius))
@@ -285,6 +305,16 @@ namespace Player {
         }
         
         Vector3 GetSlopeMoveDirection() => Vector3.ProjectOnPlane(GetMoveDirection(), groundHit.normal).normalized;
+        
+        Vector3 GetSlopeVelocity() => Vector3.ProjectOnPlane(playerRigidbody.linearVelocity, groundHit.normal);
+        
+        void AlignVelocityToSlope() {
+            if (!IsGrounded() || !IsOnSlope())
+                return;
+
+            var velocity = playerRigidbody.linearVelocity;
+            playerRigidbody.linearVelocity = Vector3.ProjectOnPlane(velocity, groundHit.normal);
+        }
         
         Vector3 GetPlayerFeetPosition() =>
             playerRigidbody.position + Vector3.down * (playerCollider.radius / 2) + Vector3.up * LOWER_ORIGIN_MINIMUM_HEIGHT;
