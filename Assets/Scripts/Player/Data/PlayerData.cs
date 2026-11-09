@@ -25,7 +25,7 @@ namespace Player.Data {
         public AnimationCurve jumpCurve;
         [Header("Slope Handling Data")] 
         public float maxSlopeAngle = 35f;
-        public float slidingFrictionOnSlope = 2.5f;
+        public float frictionOnSlope = 2.5f;
         [Header("Sliding")] 
         public float allowSlideVelocity = 5f;
         public float slideForce = 250f;
@@ -35,6 +35,5 @@ namespace Player.Data {
         public float slideCameraPositionOffset = 1f;
         public Ease slidingCameraTweenEase =  Ease.InQuad;
         public AnimationCurve slidingForceCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
-
     }
 }

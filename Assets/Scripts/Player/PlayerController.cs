@@ -15,15 +15,16 @@ namespace Player {
         [Space(10)]
         [SerializeField] Transform cameraTransform;
         [SerializeField] Transform defaultCameraPositionTransform;
+        [SerializeField] GameObject slidingSprite;
         [SerializeField] Rigidbody playerRigidbody;
         [SerializeField] CapsuleCollider playerCollider;
-        [SerializeField] LayerMask ignoredLayer;
         
         [Header("Settings")]
         [SerializeField] bool drawGizmos = true;
         
         PlayerInputManager playerInputManager;
         DebugLogManager debugLogManager;
+        LayerManager layerManager;
 
         RaycastHit groundHit;
 
@@ -41,8 +42,6 @@ namespace Player {
         bool isJumpQueued;
         [SerializeField] bool isSliding;
         bool isSlideActionHeld; 
-
-        int GetGroundedCastLayerMask => ~ignoredLayer;
         
         readonly Collider[] groundedCollisionResults = new Collider[16];
         
@@ -57,6 +56,7 @@ namespace Player {
             var gameManager = GameManager.TryGetInstance();
             playerInputManager = gameManager.playerInputManager;
             debugLogManager = gameManager.debugLogManager;
+            layerManager = gameManager.layerManager;
         }
 
         void Update() {
@@ -182,7 +182,7 @@ namespace Player {
                 return;
 
             var finalFriction = isSliding
-                ? isOnSlope ? playerData.slidingFrictionOnSlope : playerData.slidingFriction
+                ? isOnSlope ? playerData.frictionOnSlope : playerData.slidingFriction
                 : playerData.groundedFriction;
 
             var friction = Mathf.Min(slopeSpeed / Time.fixedDeltaTime, finalFriction);
@@ -214,6 +214,7 @@ namespace Player {
         
         void StartSliding() {
             isSliding = true;
+            ToggleSlideSprite();
             slideElapsedTime = 0f;
             initialSlideForce = playerData.slideForce;
         }
@@ -236,6 +237,7 @@ namespace Player {
                 return;
 
             isSliding = false;
+            ToggleSlideSprite();
         }
 
         void MoveCameraDuringSlide() {
@@ -291,8 +293,10 @@ namespace Player {
         
         int GetGroundedSphereCast() {
             var sphereCastRadius = GetSphereCastRadius;
-            return Physics.OverlapSphereNonAlloc(GetPlayerFeetPosition(), sphereCastRadius, groundedCollisionResults, GetGroundedCastLayerMask);
+            return Physics.OverlapSphereNonAlloc(GetPlayerFeetPosition(), sphereCastRadius, groundedCollisionResults, layerManager.GetGroundedCastLayerMask);
         }
+        
+        void ToggleSlideSprite() => slidingSprite.SetActive(!slidingSprite.activeSelf);
         
         bool IsGrounded() => GetGroundedSphereCast() >= 1;
         

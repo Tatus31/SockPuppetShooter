@@ -52,7 +52,7 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   maxSlopeAngle: 35
-  slidingFrictionOnSlope: 10
+  frictionOnSlope: 2.5
   allowSlideVelocity: 0.1
   slideForce: 4
   slideTime: 0.5
