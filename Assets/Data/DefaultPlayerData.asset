@@ -14,19 +14,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Player.Data.PlayerData
   mouseSensitivityX: 0.5
   mouseSensitivityY: 0.5
-  moveSpeed: 10
-  acceleration: 55
+  moveSpeed: 20
+  inAirMoveSpeed: 18
+  acceleration: 300
   stepHeight: 0.6
   stepCheckDistance: 0.5
   stepClimbSpeed: 10
-  groundedFriction: 50
+  groundedFriction: 300
   jumpDuration: 0.8
   jumpMultiplier: 10
   gravityControlMultiplier: 2
   fallingGravityControlMultiplier: 5
   jumpCutOfForce: 105
   minimalJumpVelocity: 5
-  inAirAcceleration: 35
+  inAirAcceleration: 55
   jumpCurve:
     serializedVersion: 2
     m_Curve:
@@ -54,11 +55,11 @@ MonoBehaviour:
   maxSlopeAngle: 35
   frictionOnSlope: 2.5
   allowSlideVelocity: 0.1
-  slideForce: 4
+  slideForce: 40
   slideTime: 0.5
   slidingFriction: 10
-  slidingCameraTweenDuration: 0.2
-  slideCameraPositionOffset: 0.5
+  slidingCameraTweenDuration: 0.05
+  slideCameraPositionOffset: 0.35
   slidingCameraTweenEase: 6
   slidingForceCurve:
     serializedVersion: 2

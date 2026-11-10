@@ -1,9 +1,17 @@
+using UnityEngine;
+
 namespace Player.Weapons {
     public class HitScanPistol : PlayerBaseWeapon {
         void Update() {
-            if (playerInputManager.GetAttackActionPressedThisFrame())
-                GetEntityAtCrosshair();
+            GetEntityAtCrosshair(out var hit);
+            if (playerInputManager.GetAttackActionPressedThisFrame() && CanShoot())
+                TryShoot(hit);
         }
 
+        void TryShoot(RaycastHit hit) {
+            ChangeToShotSprite();
+            ApplyDamage(hit);
+            ResetShotCooldown();
+        }
     }
 }

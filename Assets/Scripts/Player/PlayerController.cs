@@ -15,7 +15,7 @@ namespace Player {
         [Space(10)]
         [SerializeField] Transform cameraTransform;
         [SerializeField] Transform defaultCameraPositionTransform;
-        [SerializeField] GameObject slidingSprite;
+        [SerializeField] GameObject slidingEffectGameObject;
         [SerializeField] Rigidbody playerRigidbody;
         [SerializeField] CapsuleCollider playerCollider;
         
@@ -147,7 +147,7 @@ namespace Player {
                 if (moveDirection.sqrMagnitude < 0.01f)
                     return Vector3.zero;
 
-                var targetVelocity = moveDirection * playerData.moveSpeed;
+                var targetVelocity = canJump ? moveDirection * playerData.moveSpeed : moveDirection * playerData.inAirMoveSpeed;
                 var finalAcceleration = canJump ? playerData.acceleration : playerData.inAirAcceleration;
                 return Vector3.ClampMagnitude((targetVelocity - currentVelocity) / Time.fixedDeltaTime, finalAcceleration);
             }
@@ -214,7 +214,7 @@ namespace Player {
         
         void StartSliding() {
             isSliding = true;
-            ToggleSlideSprite();
+            ToggleSlideEffect();
             slideElapsedTime = 0f;
             initialSlideForce = playerData.slideForce;
         }
@@ -236,8 +236,8 @@ namespace Player {
             if (!isSliding)
                 return;
 
+            ToggleSlideEffect();
             isSliding = false;
-            ToggleSlideSprite();
         }
 
         void MoveCameraDuringSlide() {
@@ -251,6 +251,8 @@ namespace Player {
         void MoveCameraTransformToTargetPositionY(float to) => cameraTransform.
             DOMoveY(to, playerData.slidingCameraTweenDuration).
             SetEase(playerData.slidingCameraTweenEase);
+        
+        void ToggleSlideEffect() => slidingEffectGameObject.SetActive(!slidingEffectGameObject.activeSelf);
         
         #endregion
 
@@ -295,8 +297,6 @@ namespace Player {
             var sphereCastRadius = GetSphereCastRadius;
             return Physics.OverlapSphereNonAlloc(GetPlayerFeetPosition(), sphereCastRadius, groundedCollisionResults, layerManager.GetGroundedCastLayerMask);
         }
-        
-        void ToggleSlideSprite() => slidingSprite.SetActive(!slidingSprite.activeSelf);
         
         bool IsGrounded() => GetGroundedSphereCast() >= 1;
         

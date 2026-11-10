@@ -98,6 +98,19 @@ TextureImporter:
     ignorePlatformSupport: 0
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
   spriteSheet:
     serializedVersion: 2
     sprites:
@@ -105,12 +118,12 @@ TextureImporter:
       name: allthesocks_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 7796
-        height: 2982
+        x: 143
+        y: 364
+        width: 1225
+        height: 2068
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -123,11 +136,121 @@ TextureImporter:
       indices: 
       edges: []
       weights: []
+    - serializedVersion: 2
+      name: allthesocks_2
+      rect:
+        serializedVersion: 2
+        x: 1467
+        y: 364
+        width: 1142
+        height: 1983
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2f28ed0c1bb0469478ba3ce0d10d29f3
+      internalID: 1716828485
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: allthesocks_3
+      rect:
+        serializedVersion: 2
+        x: 2865
+        y: 364
+        width: 1001
+        height: 2045
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 04bbe5ac322ca304ab2f43ff337dde26
+      internalID: 2030009002
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: allthesocks_4
+      rect:
+        serializedVersion: 2
+        x: 4070
+        y: 2261
+        width: 1068
+        height: 194
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 26, z: 729, w: 61}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 590a167a49a32a7469c0c2f42841d31e
+      internalID: -626579223
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: allthesocks_6
+      rect:
+        serializedVersion: 2
+        x: 5214
+        y: 364
+        width: 1107
+        height: 2269
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e13c617ec6c232246ba20fa51e1413d5
+      internalID: -1610259803
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: allthesocks_7
+      rect:
+        serializedVersion: 2
+        x: 6487
+        y: 364
+        width: 1002
+        height: 2045
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 530bc8a06c00ae24da605aa0532afa8d
+      internalID: 1509586523
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 2f8accc82c0d19644a919939f369629c
     internalID: 0
     vertices: []
     indices: 
@@ -135,9 +258,18 @@ TextureImporter:
     weights: []
     secondaryTextures: []
     spriteCustomMetadata:
-      entries: []
+      entries:
+      - key: SpriteEditor.SliceSettings
+        value: '{"sliceOnImport":false,"gridCellCount":{"x":1.0,"y":1.0},"gridSpriteSize":{"x":64.0,"y":64.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.5},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":1,"spriteAlignment":0,"pivotUnitMode":0,"slicingType":0,"keepEmptyRects":false,"isAlternate":false}'
     nameFileIdTable:
       allthesocks_0: -5188257262665939099
+      allthesocks_1: -1121076560
+      allthesocks_2: 1716828485
+      allthesocks_3: 2030009002
+      allthesocks_4: -626579223
+      allthesocks_5: 1243443853
+      allthesocks_6: -1610259803
+      allthesocks_7: 1509586523
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
