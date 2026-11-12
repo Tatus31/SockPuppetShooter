@@ -20,6 +20,8 @@ namespace Player.Weapons.Data {
         public WeaponScaleEffect idleToTargetScale;
         public WeaponScaleEffect targetToIdleScale;
         public WeaponScaleEffect shotScale;
+        [Header("Sway Effects"), Space(5)] 
+        public WeaponSwayEffect weaponSwayEffect;
         
         [System.Serializable]
         public class WeaponScaleEffect {
@@ -28,6 +30,12 @@ namespace Player.Weapons.Data {
             public int vibrato = 5;
             [Range(0f, 1f)] 
             public float elasticity = 0.5f;
+        }
+        
+        [System.Serializable]
+        public class WeaponSwayEffect {
+            public float swayAmount = 0.05f;
+            public float smoothness = 10f;
         }
     }
 }

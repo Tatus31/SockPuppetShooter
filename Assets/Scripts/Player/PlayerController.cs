@@ -1,6 +1,8 @@
+using System;
 using DG.Tweening;
 using Managers;
 using Player.Data;
+using TMPro;
 using UnityEngine;
 using Utils;
 
@@ -9,6 +11,7 @@ namespace Player {
     public class PlayerController : MonoBehaviour {
         //So we dont start checking underground
         const float LOWER_ORIGIN_MINIMUM_HEIGHT = 0.45f;
+        const float ALLOWED_WALL_CONTACT_THRESHOLD = 0.2f;
         
         [Header("Refs and Data")]
         [SerializeField] PlayerData playerData;
@@ -19,8 +22,9 @@ namespace Player {
         [SerializeField] Rigidbody playerRigidbody;
         [SerializeField] CapsuleCollider playerCollider;
         
-        [Header("Settings")]
+        [Header("Gizmo Settings")]
         [SerializeField] bool drawGizmos = true;
+        [SerializeField] TextMeshProUGUI speedText;
         
         PlayerInputManager playerInputManager;
         DebugLogManager debugLogManager;
@@ -32,18 +36,24 @@ namespace Player {
         float jumpElapsedTime;
         float initialSlideForce;
         float slideElapsedTime;
-        
+        float wallImpactSpeed;
+        float wallKickTimer;
+
         Vector2 currentMouseDelta;
         Vector3 moveDirection;
+        Vector3 wallNormal;
+
         
         bool jumpActionPressed;
         bool jumpActionReleased;
-        [SerializeField] bool canJump;
-        bool isJumpQueued;
-        [SerializeField] bool isSliding;
-        bool isSlideActionHeld; 
+        bool canJump;
+        bool isJumpQueued; 
+        bool isSliding;
+        bool isSlideActionHeld;
+        [SerializeField] bool isTouchingWall;
         
         readonly Collider[] groundedCollisionResults = new Collider[16];
+        readonly Collider[] forwardCollisionResults = new Collider[16];
         
         float GetSphereCastRadius => playerCollider ? playerCollider.radius / 1.5f : 1f;
 
@@ -61,9 +71,11 @@ namespace Player {
 
         void Update() {
             UpdatePlayerInput();
+            UpdateSpeedText();
         }
 
         void FixedUpdate() {
+            HandleWallKickTimer();
             AlignVelocityToSlope();
             Move();
             Jump();
@@ -75,6 +87,20 @@ namespace Player {
         void LateUpdate() {
             Look();
         }
+
+        void OnCollisionEnter(Collision other) {
+            HandleWallContact(other, true);
+        }
+
+        void OnCollisionStay(Collision other) {
+            HandleWallContact(other, false);
+        }
+
+        void OnCollisionExit(Collision other) {
+            isTouchingWall = false;
+            wallImpactSpeed = 0f;
+        }
+
         #endregion
 
         #region Look
@@ -134,6 +160,9 @@ namespace Player {
         }
 
         void Move() {
+            if (wallKickTimer > 0f)
+                return;
+            
             if (!isSliding) {
                 var horizontalVelocity = GetMovementHorizontalAcceleration();
                 playerRigidbody.AddForce(horizontalVelocity, ForceMode.Acceleration);
@@ -172,6 +201,9 @@ namespace Player {
 
         #region Friction
         void ApplyFriction() {
+            if (wallKickTimer > 0f)
+                return;
+            
             var isOnSlope = IsOnSlope();
             var slopeVelocity = isOnSlope ? GetSlopeVelocity() : GetHorizontalVelocity();
             var slopeSpeed = slopeVelocity.magnitude;
@@ -262,6 +294,9 @@ namespace Player {
                 return;
 
             isJumpQueued = false;
+            if (TryWallKick())
+                return;
+            
             if (!canJump)
                 return;
             
@@ -286,6 +321,52 @@ namespace Player {
         }
         #endregion
 
+        #region WallKick
+
+        void HandleWallContact(Collision collision, bool useImpactVelocity) {
+            foreach (var contact in collision.contacts) {
+                if (Mathf.Abs(contact.normal.y) > ALLOWED_WALL_CONTACT_THRESHOLD)
+                    continue;
+                
+                var normal= contact.normal;
+                if (Vector3.Dot(normal, transform.position - contact.point) < 0f) 
+                    normal = -normal;
+                
+                wallNormal = Vector3.ProjectOnPlane(normal, Vector3.up).normalized;
+                isTouchingWall = true;
+                if (!useImpactVelocity)
+                    return;
+                
+                var horizontalImpactVelocity = Vector3.ProjectOnPlane(collision.relativeVelocity, Vector3.up);
+                wallImpactSpeed = Mathf.Abs(Vector3.Dot(horizontalImpactVelocity, wallNormal));
+
+                return;
+            }
+        }
+
+        bool TryWallKick() {
+            if (!isTouchingWall)
+                return false;
+
+            if (wallImpactSpeed < playerData.wallKickMinimumSpeed)
+                return false;
+            
+            var velocity = playerRigidbody.linearVelocity;
+            var wallTangent = Vector3.Cross(Vector3.up, wallNormal).normalized;
+            var tangentVelocity = Vector3.Project(velocity, wallTangent);
+            var kickVelocity = tangentVelocity + wallNormal * playerData.wallKickHorizontalForce + Vector3.up * playerData.wallKickVerticalForce;
+            playerRigidbody.linearVelocity = kickVelocity;
+            
+            wallKickTimer = playerData.wallKickCooldown;
+            isTouchingWall = false;
+            wallImpactSpeed = 0f;
+            jumpElapsedTime = 0f;
+            
+            return true;
+        }
+
+        #endregion
+
         #region Getters
         Vector3 GetHorizontalVelocity() {
             var velocity = playerRigidbody.linearVelocity;
@@ -297,6 +378,15 @@ namespace Player {
             var sphereCastRadius = GetSphereCastRadius;
             return Physics.OverlapSphereNonAlloc(GetPlayerFeetPosition(), sphereCastRadius, groundedCollisionResults, layerManager.GetGroundedCastLayerMask);
         }
+        
+        int GetForwardSphereCast() {
+            var sphereCastRadius = GetSphereCastRadius;
+            return Physics.OverlapSphereNonAlloc(GetPlayerCenterPositionWithOffset(GetCameraForwardDirection(), 2), sphereCastRadius, forwardCollisionResults, layerManager.GetGroundedCastLayerMask);
+        }
+
+        Vector3 GetCameraForwardDirection() => cameraTransform ? cameraTransform.forward :  Vector3.zero;
+        
+        bool IsFacingWall() => GetForwardSphereCast() >= 1;
         
         bool IsGrounded() => GetGroundedSphereCast() >= 1;
         
@@ -320,16 +410,21 @@ namespace Player {
             playerRigidbody.linearVelocity = Vector3.ProjectOnPlane(velocity, groundHit.normal);
         }
         
+        void HandleWallKickTimer() => wallKickTimer = Mathf.Max(0f, wallKickTimer - Time.fixedDeltaTime);
+        
         Vector3 GetPlayerFeetPosition() =>
             playerRigidbody.position + Vector3.down * (playerCollider.radius / 2) + Vector3.up * LOWER_ORIGIN_MINIMUM_HEIGHT;
         
         Vector3 GetPlayerCenterPosition() =>
             playerRigidbody.position + Vector3.up * (playerCollider.height / 2);
         
+        Vector3 GetPlayerCenterPositionWithOffset(Vector3 offset, float multiplier = 1) =>
+            playerRigidbody.position + Vector3.up * (playerCollider.height / 2) + offset * multiplier;
+        
         #endregion
 
         #region Gizmos
-        void OnDrawGizmosSelected() {
+        void OnDrawGizmos() {
             if (!drawGizmos)
                 return;
             
@@ -346,7 +441,17 @@ namespace Player {
             Gizmos.DrawWireSphere(GetPlayerFeetPosition(), GetSphereCastRadius);
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(GetPlayerCenterPosition(), GetSphereCastRadius);
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(GetPlayerCenterPositionWithOffset(GetCameraForwardDirection(), 2), GetSphereCastRadius);
         }
+        
+        void UpdateSpeedText() {
+            if (!speedText || !playerRigidbody)
+                return;
+
+            speedText.text = $"Speed: {GetHorizontalVelocity().magnitude:F2}";
+        }
+        
         #endregion
     }
 }

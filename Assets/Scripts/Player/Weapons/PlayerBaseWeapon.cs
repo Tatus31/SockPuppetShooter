@@ -1,3 +1,4 @@
+using System;
 using DG.Tweening;
 using Entity.Damageable.Interface;
 using Managers;
@@ -11,6 +12,7 @@ namespace Player.Weapons {
         [SerializeField] WeaponData weaponData;
         [SerializeField] Camera camera;
         [SerializeField] Image weaponImage;
+        [SerializeField] Transform weaponPivot;
         [Header("Gizmos")]
         [SerializeField] bool drawGizmos = true;
         [SerializeField] float rayDistance = 100f;
@@ -26,9 +28,12 @@ namespace Player.Weapons {
         
         Tween weaponScaleTween;
         Vector3 defaultWeaponScale;
+        Vector3 defaultWeaponPosition;
+        Vector3 targetWeaponPosition;
         
         void Awake() {
             defaultWeaponScale = weaponImage.transform.localScale;
+            defaultWeaponPosition = weaponPivot.localPosition;
         }
 
         void Start() {
@@ -102,6 +107,15 @@ namespace Player.Weapons {
         protected bool CanShoot() => Time.time >= nextShotTime;
         
         protected void ResetShotCooldown() =>  nextShotTime = Time.time + weaponData.shotCooldown;
+
+        protected void HandleWeaponSway() {
+            var mouseDelta = playerInputManager.GetLookDelta();
+            var targetPosition = defaultWeaponPosition - new Vector3(mouseDelta.x, mouseDelta.y, 0f) 
+                * weaponData.weaponSwayEffect.swayAmount;
+            
+            weaponPivot.localPosition = Vector3.Lerp(weaponPivot.localPosition, targetPosition,
+                Time.deltaTime * weaponData.weaponSwayEffect.smoothness);
+        }
         
         void SetWeaponSprite(Sprite sprite, WeaponData.WeaponScaleEffect effect, bool force = false) {
             if (weaponImage.sprite == sprite && !force)

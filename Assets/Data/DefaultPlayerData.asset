@@ -52,6 +52,11 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  wallCheckDistance: 0.5
+  wallKickMinimumSpeed: 4
+  wallKickHorizontalForce: 40
+  wallKickVerticalForce: 6
+  wallKickCooldown: 0
   maxSlopeAngle: 35
   frictionOnSlope: 2.5
   allowSlideVelocity: 0.1
