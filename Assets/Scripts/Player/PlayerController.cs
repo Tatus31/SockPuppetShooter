@@ -31,6 +31,7 @@ namespace Player {
         LayerManager layerManager;
 
         RaycastHit groundHit;
+        RaycastHit wallHit;
 
         float xRotation;
         float jumpElapsedTime;
@@ -56,6 +57,7 @@ namespace Player {
         readonly Collider[] forwardCollisionResults = new Collider[16];
         
         float GetSphereCastRadius => playerCollider ? playerCollider.radius / 1.5f : 1f;
+        float GetForwardSphereCastRadius => playerCollider ? playerCollider.radius / 0.4f : 1f;
 
         #region Mono
         void OnValidate() {
@@ -318,13 +320,29 @@ namespace Player {
         }
         
         int GetForwardSphereCast() {
-            var sphereCastRadius = GetSphereCastRadius;
-            return Physics.OverlapSphereNonAlloc(GetPlayerCenterPositionWithOffset(GetCameraForwardDirection(), 2), sphereCastRadius, forwardCollisionResults, layerManager.GetGroundedCastLayerMask);
+            return Physics.OverlapSphereNonAlloc(
+                GetPlayerCenterPositionWithOffset(GetCameraForwardDirection(), 2), 
+                GetForwardSphereCastRadius, 
+                forwardCollisionResults, 
+                layerManager.GetGroundedCastLayerMask);
         }
 
         Vector3 GetCameraForwardDirection() => cameraTransform ? cameraTransform.forward :  Vector3.zero;
-        
-        bool IsFacingWall() => GetForwardSphereCast() >= 1;
+
+        float maxWallAngle = 80f;
+        float wallDetectionDistance = 1f;
+        bool IsFacingWall() {
+            var origin = GetPlayerCenterPosition();
+            var direction = cameraTransform.forward;
+            if(drawGizmos)
+                Debug.DrawRay(origin, direction * wallDetectionDistance, Color.blueViolet);
+            
+            if(!Physics.Raycast(origin, direction, out wallHit, wallDetectionDistance))
+                return false;
+            
+            var angle = Vector3.Angle(-cameraTransform.forward, wallHit.normal);
+            return angle < maxWallAngle &&  angle > 0f;
+        }
         
         bool IsGrounded() => GetGroundedSphereCast() >= 1;
         
@@ -380,7 +398,7 @@ namespace Player {
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(GetPlayerCenterPosition(), GetSphereCastRadius);
             Gizmos.color = Color.green;
-            Gizmos.DrawWireSphere(GetPlayerCenterPositionWithOffset(GetCameraForwardDirection(), 2), GetSphereCastRadius);
+            Gizmos.DrawWireSphere(GetPlayerCenterPositionWithOffset(GetCameraForwardDirection(), 1.5f), GetForwardSphereCastRadius);
         }
         
         void UpdateSpeedText() {
