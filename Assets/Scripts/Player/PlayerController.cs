@@ -11,7 +11,7 @@ namespace Player {
     public class PlayerController : MonoBehaviour {
         //So we dont start checking underground
         const float LOWER_ORIGIN_MINIMUM_HEIGHT = 0.45f;
-        const float ALLOWED_WALL_CONTACT_THRESHOLD = 0.2f;
+        const float ALLOWED_WALL_CONTACT_THRESHOLD = 0.05f;
         
         [Header("Refs and Data")]
         [SerializeField] PlayerData playerData;
@@ -50,7 +50,7 @@ namespace Player {
         bool isJumpQueued; 
         bool isSliding;
         bool isSlideActionHeld;
-        [SerializeField] bool isTouchingWall;
+        bool isTouchingWall;
         
         readonly Collider[] groundedCollisionResults = new Collider[16];
         readonly Collider[] forwardCollisionResults = new Collider[16];
@@ -87,20 +87,7 @@ namespace Player {
         void LateUpdate() {
             Look();
         }
-
-        void OnCollisionEnter(Collision other) {
-            HandleWallContact(other, true);
-        }
-
-        void OnCollisionStay(Collision other) {
-            HandleWallContact(other, false);
-        }
-
-        void OnCollisionExit(Collision other) {
-            isTouchingWall = false;
-            wallImpactSpeed = 0f;
-        }
-
+        
         #endregion
 
         #region Look
@@ -294,9 +281,6 @@ namespace Player {
                 return;
 
             isJumpQueued = false;
-            if (TryWallKick())
-                return;
-            
             if (!canJump)
                 return;
             
@@ -320,53 +304,7 @@ namespace Player {
             playerRigidbody.AddForce(Vector3.down * finalJumpCutOffForce, ForceMode.Acceleration);
         }
         #endregion
-
-        #region WallKick
-
-        void HandleWallContact(Collision collision, bool useImpactVelocity) {
-            foreach (var contact in collision.contacts) {
-                if (Mathf.Abs(contact.normal.y) > ALLOWED_WALL_CONTACT_THRESHOLD)
-                    continue;
-                
-                var normal= contact.normal;
-                if (Vector3.Dot(normal, transform.position - contact.point) < 0f) 
-                    normal = -normal;
-                
-                wallNormal = Vector3.ProjectOnPlane(normal, Vector3.up).normalized;
-                isTouchingWall = true;
-                if (!useImpactVelocity)
-                    return;
-                
-                var horizontalImpactVelocity = Vector3.ProjectOnPlane(collision.relativeVelocity, Vector3.up);
-                wallImpactSpeed = Mathf.Abs(Vector3.Dot(horizontalImpactVelocity, wallNormal));
-
-                return;
-            }
-        }
-
-        bool TryWallKick() {
-            if (!isTouchingWall)
-                return false;
-
-            if (wallImpactSpeed < playerData.wallKickMinimumSpeed)
-                return false;
-            
-            var velocity = playerRigidbody.linearVelocity;
-            var wallTangent = Vector3.Cross(Vector3.up, wallNormal).normalized;
-            var tangentVelocity = Vector3.Project(velocity, wallTangent);
-            var kickVelocity = tangentVelocity + wallNormal * playerData.wallKickHorizontalForce + Vector3.up * playerData.wallKickVerticalForce;
-            playerRigidbody.linearVelocity = kickVelocity;
-            
-            wallKickTimer = playerData.wallKickCooldown;
-            isTouchingWall = false;
-            wallImpactSpeed = 0f;
-            jumpElapsedTime = 0f;
-            
-            return true;
-        }
-
-        #endregion
-
+        
         #region Getters
         Vector3 GetHorizontalVelocity() {
             var velocity = playerRigidbody.linearVelocity;

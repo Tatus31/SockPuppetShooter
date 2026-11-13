@@ -24,12 +24,6 @@ namespace Player.Data {
         public float minimalJumpVelocity = 15f;
         public float inAirAcceleration = 55f;
         public AnimationCurve jumpCurve;
-        [Header("Wall Kick Data")]
-        public float wallCheckDistance = 1.0f;
-        public float wallKickMinimumSpeed = 5f;
-        public float wallKickHorizontalForce = 10f;
-        public float wallKickVerticalForce = 6f;
-        public float wallKickCooldown = 0.2f;
         [Header("Slope Handling Data")] 
         public float maxSlopeAngle = 35f;
         public float frictionOnSlope = 2.5f;

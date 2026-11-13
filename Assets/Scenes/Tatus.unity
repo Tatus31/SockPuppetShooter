@@ -316,6 +316,7 @@ MonoBehaviour:
   playerCollider: {fileID: 25005374}
   drawGizmos: 1
   speedText: {fileID: 1163065147}
+  isTouchingWall: 0
 --- !u!114 &13600476
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -502,7 +503,7 @@ CapsuleCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 25005372}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 1dbc484161593e447bc4f494ae0ff6dd, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0

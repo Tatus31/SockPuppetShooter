@@ -30,6 +30,7 @@ namespace Player.Weapons {
         Vector3 defaultWeaponScale;
         Vector3 defaultWeaponPosition;
         Vector3 targetWeaponPosition;
+        Vector3 swayVelocity;
         
         void Awake() {
             defaultWeaponScale = weaponImage.transform.localScale;
@@ -110,11 +111,16 @@ namespace Player.Weapons {
 
         protected void HandleWeaponSway() {
             var mouseDelta = playerInputManager.GetLookDelta();
-            var targetPosition = defaultWeaponPosition - new Vector3(mouseDelta.x, mouseDelta.y, 0f) 
-                * weaponData.weaponSwayEffect.swayAmount;
+            var targetPosition = defaultWeaponPosition - new Vector3(
+                mouseDelta.x, 
+                mouseDelta.y, 
+                0f) * weaponData.weaponSwayEffect.swayAmount;
             
-            weaponPivot.localPosition = Vector3.Lerp(weaponPivot.localPosition, targetPosition,
-                Time.deltaTime * weaponData.weaponSwayEffect.smoothness);
+            weaponPivot.localPosition = Vector3.SmoothDamp(
+                weaponPivot.localPosition, 
+                targetPosition,
+                ref swayVelocity, 
+                weaponData.weaponSwayEffect.smoothness);
         }
         
         void SetWeaponSprite(Sprite sprite, WeaponData.WeaponScaleEffect effect, bool force = false) {
