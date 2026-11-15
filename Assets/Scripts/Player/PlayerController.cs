@@ -1,6 +1,8 @@
+using System;
 using DG.Tweening;
 using Managers;
 using Player.Data;
+using TMPro;
 using UnityEngine;
 using Utils;
 
@@ -9,43 +11,53 @@ namespace Player {
     public class PlayerController : MonoBehaviour {
         //So we dont start checking underground
         const float LOWER_ORIGIN_MINIMUM_HEIGHT = 0.45f;
+        const float ALLOWED_WALL_CONTACT_THRESHOLD = 0.05f;
         
         [Header("Refs and Data")]
         [SerializeField] PlayerData playerData;
         [Space(10)]
         [SerializeField] Transform cameraTransform;
         [SerializeField] Transform defaultCameraPositionTransform;
-        [SerializeField] GameObject slidingSprite;
+        [SerializeField] GameObject slidingEffectGameObject;
         [SerializeField] Rigidbody playerRigidbody;
         [SerializeField] CapsuleCollider playerCollider;
         
-        [Header("Settings")]
+        [Header("Gizmo Settings")]
         [SerializeField] bool drawGizmos = true;
+        [SerializeField] TextMeshProUGUI speedText;
         
         PlayerInputManager playerInputManager;
         DebugLogManager debugLogManager;
         LayerManager layerManager;
 
         RaycastHit groundHit;
+        RaycastHit wallHit;
 
         float xRotation;
         float jumpElapsedTime;
         float initialSlideForce;
         float slideElapsedTime;
-        
+        float wallImpactSpeed;
+        float wallKickTimer;
+
         Vector2 currentMouseDelta;
         Vector3 moveDirection;
+        Vector3 wallNormal;
+
         
         bool jumpActionPressed;
         bool jumpActionReleased;
-        [SerializeField] bool canJump;
-        bool isJumpQueued;
-        [SerializeField] bool isSliding;
-        bool isSlideActionHeld; 
+        bool canJump;
+        bool isJumpQueued; 
+        bool isSliding;
+        bool isSlideActionHeld;
+        bool isTouchingWall;
         
         readonly Collider[] groundedCollisionResults = new Collider[16];
+        readonly Collider[] forwardCollisionResults = new Collider[16];
         
         float GetSphereCastRadius => playerCollider ? playerCollider.radius / 1.5f : 1f;
+        float GetForwardSphereCastRadius => playerCollider ? playerCollider.radius / 0.4f : 1f;
 
         #region Mono
         void OnValidate() {
@@ -61,9 +73,11 @@ namespace Player {
 
         void Update() {
             UpdatePlayerInput();
+            UpdateSpeedText();
         }
 
         void FixedUpdate() {
+            HandleWallKickTimer();
             AlignVelocityToSlope();
             Move();
             Jump();
@@ -75,6 +89,7 @@ namespace Player {
         void LateUpdate() {
             Look();
         }
+        
         #endregion
 
         #region Look
@@ -134,6 +149,9 @@ namespace Player {
         }
 
         void Move() {
+            if (wallKickTimer > 0f)
+                return;
+            
             if (!isSliding) {
                 var horizontalVelocity = GetMovementHorizontalAcceleration();
                 playerRigidbody.AddForce(horizontalVelocity, ForceMode.Acceleration);
@@ -147,7 +165,7 @@ namespace Player {
                 if (moveDirection.sqrMagnitude < 0.01f)
                     return Vector3.zero;
 
-                var targetVelocity = moveDirection * playerData.moveSpeed;
+                var targetVelocity = canJump ? moveDirection * playerData.moveSpeed : moveDirection * playerData.inAirMoveSpeed;
                 var finalAcceleration = canJump ? playerData.acceleration : playerData.inAirAcceleration;
                 return Vector3.ClampMagnitude((targetVelocity - currentVelocity) / Time.fixedDeltaTime, finalAcceleration);
             }
@@ -172,6 +190,9 @@ namespace Player {
 
         #region Friction
         void ApplyFriction() {
+            if (wallKickTimer > 0f)
+                return;
+            
             var isOnSlope = IsOnSlope();
             var slopeVelocity = isOnSlope ? GetSlopeVelocity() : GetHorizontalVelocity();
             var slopeSpeed = slopeVelocity.magnitude;
@@ -214,7 +235,7 @@ namespace Player {
         
         void StartSliding() {
             isSliding = true;
-            ToggleSlideSprite();
+            ToggleSlideEffect();
             slideElapsedTime = 0f;
             initialSlideForce = playerData.slideForce;
         }
@@ -236,8 +257,8 @@ namespace Player {
             if (!isSliding)
                 return;
 
+            ToggleSlideEffect();
             isSliding = false;
-            ToggleSlideSprite();
         }
 
         void MoveCameraDuringSlide() {
@@ -251,6 +272,8 @@ namespace Player {
         void MoveCameraTransformToTargetPositionY(float to) => cameraTransform.
             DOMoveY(to, playerData.slidingCameraTweenDuration).
             SetEase(playerData.slidingCameraTweenEase);
+        
+        void ToggleSlideEffect() => slidingEffectGameObject.SetActive(!slidingEffectGameObject.activeSelf);
         
         #endregion
 
@@ -283,7 +306,7 @@ namespace Player {
             playerRigidbody.AddForce(Vector3.down * finalJumpCutOffForce, ForceMode.Acceleration);
         }
         #endregion
-
+        
         #region Getters
         Vector3 GetHorizontalVelocity() {
             var velocity = playerRigidbody.linearVelocity;
@@ -296,7 +319,30 @@ namespace Player {
             return Physics.OverlapSphereNonAlloc(GetPlayerFeetPosition(), sphereCastRadius, groundedCollisionResults, layerManager.GetGroundedCastLayerMask);
         }
         
-        void ToggleSlideSprite() => slidingSprite.SetActive(!slidingSprite.activeSelf);
+        int GetForwardSphereCast() {
+            return Physics.OverlapSphereNonAlloc(
+                GetPlayerCenterPositionWithOffset(GetCameraForwardDirection(), 2), 
+                GetForwardSphereCastRadius, 
+                forwardCollisionResults, 
+                layerManager.GetGroundedCastLayerMask);
+        }
+
+        Vector3 GetCameraForwardDirection() => cameraTransform ? cameraTransform.forward :  Vector3.zero;
+
+        float maxWallAngle = 80f;
+        float wallDetectionDistance = 1f;
+        bool IsFacingWall() {
+            var origin = GetPlayerCenterPosition();
+            var direction = cameraTransform.forward;
+            if(drawGizmos)
+                Debug.DrawRay(origin, direction * wallDetectionDistance, Color.blueViolet);
+            
+            if(!Physics.Raycast(origin, direction, out wallHit, wallDetectionDistance))
+                return false;
+            
+            var angle = Vector3.Angle(-cameraTransform.forward, wallHit.normal);
+            return angle < maxWallAngle &&  angle > 0f;
+        }
         
         bool IsGrounded() => GetGroundedSphereCast() >= 1;
         
@@ -320,16 +366,21 @@ namespace Player {
             playerRigidbody.linearVelocity = Vector3.ProjectOnPlane(velocity, groundHit.normal);
         }
         
+        void HandleWallKickTimer() => wallKickTimer = Mathf.Max(0f, wallKickTimer - Time.fixedDeltaTime);
+        
         Vector3 GetPlayerFeetPosition() =>
             playerRigidbody.position + Vector3.down * (playerCollider.radius / 2) + Vector3.up * LOWER_ORIGIN_MINIMUM_HEIGHT;
         
         Vector3 GetPlayerCenterPosition() =>
             playerRigidbody.position + Vector3.up * (playerCollider.height / 2);
         
+        Vector3 GetPlayerCenterPositionWithOffset(Vector3 offset, float multiplier = 1) =>
+            playerRigidbody.position + Vector3.up * (playerCollider.height / 2) + offset * multiplier;
+        
         #endregion
 
         #region Gizmos
-        void OnDrawGizmosSelected() {
+        void OnDrawGizmos() {
             if (!drawGizmos)
                 return;
             
@@ -346,7 +397,17 @@ namespace Player {
             Gizmos.DrawWireSphere(GetPlayerFeetPosition(), GetSphereCastRadius);
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(GetPlayerCenterPosition(), GetSphereCastRadius);
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(GetPlayerCenterPositionWithOffset(GetCameraForwardDirection(), 1.5f), GetForwardSphereCastRadius);
         }
+        
+        void UpdateSpeedText() {
+            if (!speedText || !playerRigidbody)
+                return;
+
+            speedText.text = $"Speed: {GetHorizontalVelocity().magnitude:F2}";
+        }
+        
         #endregion
     }
 }
