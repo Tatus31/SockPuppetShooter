@@ -54,6 +54,9 @@ MonoBehaviour:
     m_RotationOrder: 4
   maxSlopeAngle: 35
   frictionOnSlope: 2.5
+  maxWallAngle: 80
+  wallDetectionDistance: 1
+  WallKickForce: 15
   allowSlideVelocity: 0.1
   slideForce: 40
   slideTime: 0.5

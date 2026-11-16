@@ -27,6 +27,10 @@ namespace Player.Data {
         [Header("Slope Handling Data")] 
         public float maxSlopeAngle = 35f;
         public float frictionOnSlope = 2.5f;
+        [Header("WallKick Data")] 
+        public float maxWallAngle = 80f;
+        public float wallDetectionDistance = 1f;
+        public float WallKickForce = 5f;
         [Header("Sliding Data")] 
         public float allowSlideVelocity = 5f;
         public float slideForce = 250f;

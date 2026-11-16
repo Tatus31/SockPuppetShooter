@@ -11,7 +11,6 @@ namespace Player {
     public class PlayerController : MonoBehaviour {
         //So we dont start checking underground
         const float LOWER_ORIGIN_MINIMUM_HEIGHT = 0.45f;
-        const float ALLOWED_WALL_CONTACT_THRESHOLD = 0.05f;
         
         [Header("Refs and Data")]
         [SerializeField] PlayerData playerData;
@@ -54,7 +53,6 @@ namespace Player {
         bool isTouchingWall;
         
         readonly Collider[] groundedCollisionResults = new Collider[16];
-        readonly Collider[] forwardCollisionResults = new Collider[16];
         
         float GetSphereCastRadius => playerCollider ? playerCollider.radius / 1.5f : 1f;
         float GetForwardSphereCastRadius => playerCollider ? playerCollider.radius / 0.4f : 1f;
@@ -77,7 +75,7 @@ namespace Player {
         }
 
         void FixedUpdate() {
-            HandleWallKickTimer();
+            HandleWallKick();
             AlignVelocityToSlope();
             Move();
             Jump();
@@ -212,6 +210,27 @@ namespace Player {
         #endregion
 
         #region Slide
+        
+        bool IsOnSlope() {
+            if (!Physics.Raycast(transform.position, Vector3.down, out groundHit, GetSphereCastRadius))
+                return false;
+            
+            var angle = Vector3.Angle(Vector3.up, groundHit.normal);
+            return angle < playerData.maxSlopeAngle && angle != 0;
+        }
+        
+        Vector3 GetSlopeMoveDirection() => Vector3.ProjectOnPlane(GetMoveDirection(), groundHit.normal).normalized;
+        
+        Vector3 GetSlopeVelocity() => Vector3.ProjectOnPlane(playerRigidbody.linearVelocity, groundHit.normal);
+        
+        void AlignVelocityToSlope() {
+            if (!IsGrounded() || !IsOnSlope())
+                return;
+
+            var velocity = playerRigidbody.linearVelocity;
+            playerRigidbody.linearVelocity = Vector3.ProjectOnPlane(velocity, groundHit.normal);
+        }
+        
         void HandleSliding() {
             MoveCameraDuringSlide();
             
@@ -306,6 +325,39 @@ namespace Player {
             playerRigidbody.AddForce(Vector3.down * finalJumpCutOffForce, ForceMode.Acceleration);
         }
         #endregion
+
+        #region WallKick
+
+        bool IsFacingWall() {
+            var origin = GetPlayerCenterPosition();
+            var direction = cameraTransform.forward;
+#if UNITY_EDITOR
+            if(drawGizmos)
+                Debug.DrawRay(origin, direction * playerData.wallDetectionDistance, Color.blueViolet);
+#endif
+            
+            if(!Physics.Raycast(origin, direction, out wallHit, playerData.wallDetectionDistance))
+                return false;
+            
+            var angle = Vector3.Angle(-cameraTransform.forward, wallHit.normal);
+            return angle < playerData.maxWallAngle &&  angle > 0f;
+        }
+
+        void HandleWallKick() {
+            if(!IsFacingWall())
+                return;
+            
+            if (!isJumpQueued)
+                return;
+
+            isJumpQueued = false;
+            if (canJump)
+                return;
+            
+            playerRigidbody.AddForce(wallHit.normal * playerData.WallKickForce, ForceMode.VelocityChange);
+        }
+
+        #endregion
         
         #region Getters
         Vector3 GetHorizontalVelocity() {
@@ -319,52 +371,9 @@ namespace Player {
             return Physics.OverlapSphereNonAlloc(GetPlayerFeetPosition(), sphereCastRadius, groundedCollisionResults, layerManager.GetGroundedCastLayerMask);
         }
         
-        int GetForwardSphereCast() {
-            return Physics.OverlapSphereNonAlloc(
-                GetPlayerCenterPositionWithOffset(GetCameraForwardDirection(), 2), 
-                GetForwardSphereCastRadius, 
-                forwardCollisionResults, 
-                layerManager.GetGroundedCastLayerMask);
-        }
-
         Vector3 GetCameraForwardDirection() => cameraTransform ? cameraTransform.forward :  Vector3.zero;
-
-        float maxWallAngle = 80f;
-        float wallDetectionDistance = 1f;
-        bool IsFacingWall() {
-            var origin = GetPlayerCenterPosition();
-            var direction = cameraTransform.forward;
-            if(drawGizmos)
-                Debug.DrawRay(origin, direction * wallDetectionDistance, Color.blueViolet);
-            
-            if(!Physics.Raycast(origin, direction, out wallHit, wallDetectionDistance))
-                return false;
-            
-            var angle = Vector3.Angle(-cameraTransform.forward, wallHit.normal);
-            return angle < maxWallAngle &&  angle > 0f;
-        }
         
         bool IsGrounded() => GetGroundedSphereCast() >= 1;
-        
-        bool IsOnSlope() {
-            if (!Physics.Raycast(transform.position, Vector3.down, out groundHit, GetSphereCastRadius))
-                return false;
-            
-            var angle = Vector3.Angle(Vector3.up, groundHit.normal);
-            return angle < playerData.maxSlopeAngle && angle != 0;
-        }
-        
-        Vector3 GetSlopeMoveDirection() => Vector3.ProjectOnPlane(GetMoveDirection(), groundHit.normal).normalized;
-        
-        Vector3 GetSlopeVelocity() => Vector3.ProjectOnPlane(playerRigidbody.linearVelocity, groundHit.normal);
-        
-        void AlignVelocityToSlope() {
-            if (!IsGrounded() || !IsOnSlope())
-                return;
-
-            var velocity = playerRigidbody.linearVelocity;
-            playerRigidbody.linearVelocity = Vector3.ProjectOnPlane(velocity, groundHit.normal);
-        }
         
         void HandleWallKickTimer() => wallKickTimer = Mathf.Max(0f, wallKickTimer - Time.fixedDeltaTime);
         
@@ -380,6 +389,7 @@ namespace Player {
         #endregion
 
         #region Gizmos
+#if UNITY_EDITOR
         void OnDrawGizmos() {
             if (!drawGizmos)
                 return;
@@ -400,6 +410,8 @@ namespace Player {
             Gizmos.color = Color.green;
             Gizmos.DrawWireSphere(GetPlayerCenterPositionWithOffset(GetCameraForwardDirection(), 1.5f), GetForwardSphereCastRadius);
         }
+        
+#endif
         
         void UpdateSpeedText() {
             if (!speedText || !playerRigidbody)
