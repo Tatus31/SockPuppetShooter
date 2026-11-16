@@ -98,8 +98,9 @@ namespace Player.Weapons {
                 return;
             
             var damageable = hit.collider.GetComponentInParent<IDamageable>();
-            var finalDamage = hit.collider.CompareTag(Consts.CRIT_HIT_TAG) ? weaponData.critDamage : weaponData.damage;
-            damageable?.TakeDamage(finalDamage);
+            var isCritical = hit.collider.CompareTag(Consts.CRIT_HIT_TAG);
+            var finalDamage = isCritical ? weaponData.critDamage : weaponData.damage;
+            damageable?.TakeDamage(finalDamage, isCritical);
         }
         
         protected void ChangeToShotSprite() {

@@ -27,9 +27,9 @@ namespace Entity.Damageable {
             currentHealth = damageableData.maxHealth;
         }
 
-        public virtual void TakeDamage(float damage) {
+        public virtual void TakeDamage(float damage, bool isCritical) {
             currentHealth -= damage;
-            VisualTakeHit();
+            VisualTakeHit(isCritical);
             if (currentHealth <= 0)
                 Die();
         }
@@ -37,20 +37,21 @@ namespace Entity.Damageable {
         public virtual void TakeHeal(float healAmount) =>
             currentHealth = Mathf.Min(currentHealth + healAmount, damageableData.maxHealth);
         
-        protected virtual void VisualTakeHit() {
+        protected virtual void VisualTakeHit(bool isCritical) {
             if (hitCoroutine != null)
                 StopCoroutine(hitCoroutine);
 
-            hitCoroutine = StartCoroutine(GoBackToOriginal());
+            hitCoroutine = StartCoroutine(GoBackToOriginal(isCritical));
         }
 
-        IEnumerator GoBackToOriginal() {
-            var hitColor = damageableData.hitColor * damageableData.hitIntensity;
+        IEnumerator GoBackToOriginal(bool isCritical) {
+            var hitColor = isCritical ? damageableData.critHitColor : damageableData.hitColor;
+            var finalHitColor = hitColor * damageableData.hitIntensity;
             foreach (var materialData in currentDamageableMaterialData) {
                 if (!materialData.currentMaterial)
                     continue;
                 
-                materialData.currentMaterial.SetColor(EmissionColor, hitColor);
+                materialData.currentMaterial.SetColor(EmissionColor, finalHitColor);
             }
             
             var elapsedTime = 0f;
@@ -61,7 +62,7 @@ namespace Entity.Damageable {
                     if (!materialData.currentMaterial)
                         continue;
                     
-                    materialData.currentMaterial.SetColor(EmissionColor, Color.Lerp(hitColor, materialData.originalEmissionColor, t));
+                    materialData.currentMaterial.SetColor(EmissionColor, Color.Lerp(finalHitColor, materialData.originalEmissionColor, t));
                 }
                 
                 yield return null;

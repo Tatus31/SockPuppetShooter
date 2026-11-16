@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: DefaultDamageableData
   m_EditorClassIdentifier: Assembly-CSharp::Entity.Data.DamageableData
   maxHealth: 100
-  hitColor: {r: 1, g: 1, b: 1, a: 1}
+  hitColor: {r: 1, g: 0, b: 0, a: 1}
+  critHitColor: {r: 1, g: 1, b: 1, a: 1}
   hitIntensity: 5
   hitEffectDuration: 0.2

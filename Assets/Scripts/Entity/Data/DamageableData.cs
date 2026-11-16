@@ -9,6 +9,7 @@ namespace Entity.Data {
 
         [Header("Hit Visuals")]
         public Color hitColor = Color.white;
+        public Color critHitColor = Color.red;
         public float hitIntensity = 5f;
         public float hitEffectDuration = 0.2f;
     }
