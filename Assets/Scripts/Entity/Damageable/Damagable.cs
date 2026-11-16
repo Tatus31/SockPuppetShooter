@@ -1,4 +1,6 @@
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using Entity.Damageable.Interface;
 using Entity.Data;
 using UnityEngine;
@@ -6,20 +8,23 @@ using UnityEngine;
 namespace Entity.Damageable {
     public abstract class Damageable : MonoBehaviour, IDamageable
     {
+        [Serializable]
+        public class DamageableMaterialData {
+            public Material currentMaterial;
+            public Color originalEmissionColor;
+        }
+        
         [Header("Configuration")]
         [SerializeField] protected DamageableData damageableData;
-
+        [SerializeField] protected List<DamageableMaterialData> currentDamageableMaterialData;
+        
         protected float currentHealth;
-        protected Material currentMaterial;
         protected Coroutine hitCoroutine;
-        Color originalEmissionColor;
 
         static readonly int EmissionColor = Shader.PropertyToID("_EmissionColor");
 
         protected virtual void Awake() {
             currentHealth = damageableData.maxHealth;
-            currentMaterial = GetComponentInChildren<MeshRenderer>().material;
-            originalEmissionColor = currentMaterial.GetColor(EmissionColor);
         }
 
         public virtual void TakeDamage(float damage) {
@@ -41,17 +46,34 @@ namespace Entity.Damageable {
 
         IEnumerator GoBackToOriginal() {
             var hitColor = damageableData.hitColor * damageableData.hitIntensity;
+            foreach (var materialData in currentDamageableMaterialData) {
+                if (!materialData.currentMaterial)
+                    continue;
+                
+                materialData.currentMaterial.SetColor(EmissionColor, hitColor);
+            }
+            
             var elapsedTime = 0f;
-            currentMaterial.SetColor(EmissionColor, hitColor);
             while (elapsedTime < damageableData.hitEffectDuration) {
                 elapsedTime += Time.deltaTime;
                 var t = elapsedTime / damageableData.hitEffectDuration;
-                currentMaterial.SetColor(EmissionColor, Color.Lerp(hitColor, originalEmissionColor, t));
-
+                foreach (var materialData in currentDamageableMaterialData) {
+                    if (!materialData.currentMaterial)
+                        continue;
+                    
+                    materialData.currentMaterial.SetColor(EmissionColor, Color.Lerp(hitColor, materialData.originalEmissionColor, t));
+                }
+                
                 yield return null;
             }
 
-            currentMaterial.SetColor(EmissionColor, originalEmissionColor);
+            foreach (var materialData in currentDamageableMaterialData) {
+                if (!materialData.currentMaterial)
+                    continue;
+                
+                materialData.currentMaterial.SetColor(EmissionColor, materialData.originalEmissionColor);
+            }
+            
             hitCoroutine = null;
         }
 

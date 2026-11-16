@@ -8,6 +8,7 @@ namespace Player.Weapons.Data {
         public bool forceSpriteChangeOnEnter = true;
         public float aimAssistRadius = 0.15f;
         public float damage = 10f;
+        public float critDamage = 15f;
         public float shotCooldown = 0.25f;
         [Header("Weapon Sprites"), Space(5)]
         public Sprite shotSprite;

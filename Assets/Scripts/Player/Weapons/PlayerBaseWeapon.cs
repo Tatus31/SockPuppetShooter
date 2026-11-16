@@ -5,6 +5,7 @@ using Managers;
 using Player.Weapons.Data;
 using UnityEngine;
 using UnityEngine.UI;
+using Utils;
 
 namespace Player.Weapons {
     public abstract class PlayerBaseWeapon : MonoBehaviour {
@@ -97,7 +98,8 @@ namespace Player.Weapons {
                 return;
             
             var damageable = hit.collider.GetComponentInParent<IDamageable>();
-            damageable?.TakeDamage(weaponData.damage);
+            var finalDamage = hit.collider.CompareTag(Consts.CRIT_HIT_TAG) ? weaponData.critDamage : weaponData.damage;
+            damageable?.TakeDamage(finalDamage);
         }
         
         protected void ChangeToShotSprite() {

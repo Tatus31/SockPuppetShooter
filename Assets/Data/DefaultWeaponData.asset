@@ -38,5 +38,5 @@ MonoBehaviour:
     vibrato: 6
     elasticity: 0.75
   weaponSwayEffect:
-    swayAmount: 15
-    smoothness: 30
+    swayAmount: 10
+    smoothness: 0.1

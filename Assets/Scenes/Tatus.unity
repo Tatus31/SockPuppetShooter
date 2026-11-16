@@ -316,7 +316,6 @@ MonoBehaviour:
   playerCollider: {fileID: 25005374}
   drawGizmos: 1
   speedText: {fileID: 1163065147}
-  isTouchingWall: 0
 --- !u!114 &13600476
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4326,6 +4325,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Entity.Entity
   damageableData: {fileID: 11400000, guid: 8095a1427aaba754e9e1feb14a288a9b, type: 2}
+  currentDamageableMaterialData:
+  - currentMaterial: {fileID: 2100000, guid: 5766440279da1fb44b20fcd60d3fa3f3, type: 2}
+    originalEmissionColor: {r: 0.00073146453, g: 0.00073146453, b: 0.00073146453, a: 1}
 --- !u!4 &654533974
 Transform:
   m_ObjectHideFlags: 0
