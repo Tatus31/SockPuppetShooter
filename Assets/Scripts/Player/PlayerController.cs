@@ -20,6 +20,7 @@ namespace Player {
         [SerializeField] GameObject slidingEffectGameObject;
         [SerializeField] Rigidbody playerRigidbody;
         [SerializeField] CapsuleCollider playerCollider;
+        [SerializeField] CapsuleCollider slideCollider;
         
         [Header("Gizmo Settings")]
         [SerializeField] bool drawGizmos = true;
@@ -238,7 +239,7 @@ namespace Player {
         
         void HandleSliding() {
             MoveCameraDuringSlide();
-            
+            SwitchCollidersForSlide(isSliding);
             if (!isSliding) {
                 var horizontalSpeed = GetHorizontalVelocity().magnitude;
                 var canStartSliding = isSlideActionHeld && IsGrounded() && horizontalSpeed > playerData.allowSlideVelocity;
@@ -253,7 +254,7 @@ namespace Player {
                 StopSliding();
                 return;
             }
-
+            
             Slide();
         }
         
@@ -427,6 +428,11 @@ namespace Player {
             var velocity = playerRigidbody.linearVelocity;
             velocity.y = 0f;
             return velocity;
+        }
+
+        void SwitchCollidersForSlide(bool isGoingToSlide) {
+            playerCollider.enabled =  !isGoingToSlide;
+            slideCollider.enabled = isGoingToSlide;
         }
         
         int GetGroundedSphereCast() {
