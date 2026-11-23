@@ -56,7 +56,11 @@ MonoBehaviour:
   frictionOnSlope: 2.5
   maxWallAngle: 80
   wallDetectionDistance: 1
+  cameraTransformForwardDistance: 0.5
   WallKickForce: 15
+  maxSpeedKickMultiplier: 1.25
+  wallKickUpwardForce: 1.25
+  momentumRetention: 0.5
   allowSlideVelocity: 0.1
   slideForce: 40
   slideTime: 0.5

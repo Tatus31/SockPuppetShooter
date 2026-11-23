@@ -54,6 +54,8 @@ namespace Player {
         
         readonly Collider[] groundedCollisionResults = new Collider[16];
         
+        static readonly float[] wallRayAngles = { -40f, -20f, 0f, 20f, 40f };
+        
         float GetSphereCastRadius => playerCollider ? playerCollider.radius / 1.5f : 1f;
         float GetForwardSphereCastRadius => playerCollider ? playerCollider.radius / 0.4f : 1f;
 
@@ -188,6 +190,9 @@ namespace Player {
 
         #region Friction
         void ApplyFriction() {
+            if (!canJump && !isSliding)
+                return;
+            
             if (wallKickTimer > 0f)
                 return;
             
@@ -329,34 +334,92 @@ namespace Player {
         #region WallKick
 
         bool IsFacingWall() {
-            var origin = GetPlayerCenterPosition();
-            var direction = cameraTransform.forward;
+            var origin = GetWallDetectionOrigin();
+            var closestDistance = float.MaxValue;
+            wallHit = default;
+            foreach (var angle in wallRayAngles) {
+                var direction = GetWallRayDirection(angle);
+                if (!TryGetValidWallHit(origin, direction, out var hit))
+                    continue;
+
+                if (hit.distance >= closestDistance)
+                    continue;
+
+                closestDistance = hit.distance;
+                wallHit = hit;
+            }
+
+            DrawSelectedWallNormal(origin);
+            return !Mathf.Approximately(closestDistance, float.MaxValue);
+            
+            Vector3 GetWallDetectionOrigin() {
+                return GetPlayerCenterPositionWithOffset(
+                    GetCameraForwardDirection(),
+                    playerData.cameraTransformForwardDistance
+                );
+            }
+            
+            Vector3 GetWallRayDirection(float angle) {
+                return Quaternion.AngleAxis(angle, Vector3.up) * cameraTransform.forward;
+            }
+            
+            bool TryGetValidWallHit(Vector3 wallHitOrigin, Vector3 direction, out RaycastHit hit) {
+                if (!Physics.Raycast(wallHitOrigin, direction, out hit, playerData.wallDetectionDistance)) {
+                    DrawWallRay(wallHitOrigin, direction, playerData.wallDetectionDistance, Color.blue);
+                    return false;
+                }
+
+                var isValidWall = IsValidWallAngle(hit);
+                DrawWallRay(wallHitOrigin, direction, hit.distance, isValidWall ? Color.green : Color.red);
+                return isValidWall;
+            }
+            
+            bool IsValidWallAngle(RaycastHit hit) {
+                var angle = Vector3.Angle(-cameraTransform.forward, hit.normal);
+                return angle < playerData.maxWallAngle && angle > 0f;
+            }
+            
+            void DrawWallRay(Vector3 wallRayOrigin, Vector3 direction, float distance, Color color) {
 #if UNITY_EDITOR
-            if(drawGizmos)
-                Debug.DrawRay(origin, direction * playerData.wallDetectionDistance, Color.blueViolet);
+                if (drawGizmos)
+                    Debug.DrawRay(wallRayOrigin, direction * distance, color);
 #endif
+            }
             
-            if(!Physics.Raycast(origin, direction, out wallHit, playerData.wallDetectionDistance))
-                return false;
-            
-            var angle = Vector3.Angle(-cameraTransform.forward, wallHit.normal);
-            return angle < playerData.maxWallAngle &&  angle > 0f;
+            void DrawSelectedWallNormal(Vector3 WallOrigin) {
+#if UNITY_EDITOR
+                var wallNormalDistance = 1.5f;
+                if (drawGizmos && wallHit.collider)
+                    Debug.DrawRay(WallOrigin, wallHit.normal * wallNormalDistance, Color.yellow);
+#endif
+            }
         }
 
         void HandleWallKick() {
-            if(!IsFacingWall())
-                return;
-            
-            if (!isJumpQueued)
+            if (!IsFacingWall() || !isJumpQueued || canJump)
                 return;
 
             isJumpQueued = false;
-            if (canJump)
-                return;
+            playerRigidbody.linearVelocity = GetWallKickVelocity();
             
-            playerRigidbody.AddForce(wallHit.normal * playerData.WallKickForce, ForceMode.VelocityChange);
+            Vector3 GetWallKickVelocity() {
+                var horizontalVelocity = GetHorizontalVelocity();
+                return GetKickVelocity(horizontalVelocity.magnitude) + GetCarriedVelocity(horizontalVelocity);
+            }
+        
+            Vector3 GetKickVelocity(float horizontalSpeed) {
+                var speedT = Mathf.Clamp01(horizontalSpeed / playerData.moveSpeed);
+                var speedMultiplier = Mathf.Lerp(1f, playerData.maxSpeedKickMultiplier, speedT);
+                var kickDirection = (wallHit.normal + Vector3.up * playerData.wallKickUpwardForce).normalized;
+                return kickDirection * (playerData.WallKickForce * speedMultiplier);
+            }
+        
+            Vector3 GetCarriedVelocity(Vector3 horizontalVelocity) {
+                var flatWallNormal = new Vector3(wallHit.normal.x, 0f, wallHit.normal.z).normalized;
+                return Vector3.ProjectOnPlane(horizontalVelocity, flatWallNormal) * playerData.momentumRetention;
+            }
         }
-
+        
         #endregion
         
         #region Getters
@@ -408,7 +471,8 @@ namespace Player {
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(GetPlayerCenterPosition(), GetSphereCastRadius);
             Gizmos.color = Color.green;
-            Gizmos.DrawWireSphere(GetPlayerCenterPositionWithOffset(GetCameraForwardDirection(), 1.5f), GetForwardSphereCastRadius);
+            var origin = GetPlayerCenterPositionWithOffset(GetCameraForwardDirection(), playerData.cameraTransformForwardDistance);
+            Gizmos.DrawWireSphere(origin, GetForwardSphereCastRadius);
         }
         
 #endif

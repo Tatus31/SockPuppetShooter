@@ -30,7 +30,11 @@ namespace Player.Data {
         [Header("WallKick Data")] 
         public float maxWallAngle = 80f;
         public float wallDetectionDistance = 1f;
+        public float cameraTransformForwardDistance = 0.5f;
         public float WallKickForce = 5f;
+        public float maxSpeedKickMultiplier = 2f;
+        public float wallKickUpwardForce = 15f;
+        [Range(0f, 1f)] public float momentumRetention = 0.5f;
         [Header("Sliding Data")] 
         public float allowSlideVelocity = 5f;
         public float slideForce = 250f;
