@@ -29,9 +29,31 @@ namespace Entity.Damageable {
 
         public virtual void TakeDamage(float damage, bool isCritical) {
             currentHealth -= damage;
-            VisualTakeHit(isCritical);
-            if (currentHealth <= 0)
+            if (currentHealth <= 0) {
+                ResetHitVisuals();
                 Die();
+                return;
+            }
+            
+            VisualTakeHit(isCritical);
+        }
+        
+        void ResetMaterialsToOriginal() {
+            foreach (var materialData in currentDamageableMaterialData) {
+                if (!materialData.currentMaterial)
+                    continue;
+
+                materialData.currentMaterial.SetColor(EmissionColor, materialData.originalEmissionColor);
+            }
+        }
+        
+        void ResetHitVisuals() {
+            if (hitCoroutine != null) {
+                StopCoroutine(hitCoroutine);
+                hitCoroutine = null;
+            }
+
+            ResetMaterialsToOriginal();
         }
 
         public virtual void TakeHeal(float healAmount) =>
@@ -75,9 +97,10 @@ namespace Entity.Damageable {
                 materialData.currentMaterial.SetColor(EmissionColor, materialData.originalEmissionColor);
             }
             
+            ResetMaterialsToOriginal();
             hitCoroutine = null;
         }
 
-        public virtual void Die() => Debug.Log("Its dead"); //gameObject.SetActive(false);
+        public virtual void Die() => gameObject.SetActive(false);
     }
 }
